@@ -12,7 +12,7 @@ from orrery.uistate import (
 
 
 def test_a_fresh_home_has_no_favorites_or_recents(home):
-    assert load_ui(Home(home)) == {"favorites": [], "recent": [], "quickstart": True, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "preview_fps": 12, "preview_edge": 1024,
+    assert load_ui(Home(home)) == {"favorites": [], "recent": [], "quickstart": True, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "anchor_h": 72, "preview_fps": 12, "preview_edge": 1024,
                                        "annotations_show": "appended", "picture_slots": "gallery"}
 
 
@@ -38,10 +38,10 @@ def test_rename_and_forget_update_both_lists(home):
     set_favorite(h, "old", True)
     touch_recent(h, "old")
     rename_everywhere(h, "old", "new")
-    assert load_ui(h) == {"favorites": ["new"], "recent": ["new"], "quickstart": True, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "preview_fps": 12, "preview_edge": 1024,
+    assert load_ui(h) == {"favorites": ["new"], "recent": ["new"], "quickstart": True, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "anchor_h": 72, "preview_fps": 12, "preview_edge": 1024,
                                        "annotations_show": "appended", "picture_slots": "gallery"}
     forget(h, "new")
-    assert load_ui(h) == {"favorites": [], "recent": [], "quickstart": True, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "preview_fps": 12, "preview_edge": 1024,
+    assert load_ui(h) == {"favorites": [], "recent": [], "quickstart": True, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "anchor_h": 72, "preview_fps": 12, "preview_edge": 1024,
                                        "annotations_show": "appended", "picture_slots": "gallery"}
 
 

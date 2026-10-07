@@ -252,17 +252,23 @@
 .orrery-app .cm-takes.results .th-top [aria-pressed="true"] { color: var(--brass); border-color: var(--brass); }
 .orrery-app .take .r-audio { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 /* the frames a scene's REMEMBER: lines take, cut from its clip; where they go */
-.orrery-app .rm-anchors { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.orrery-app .rm-anchor { display: flex; align-items: center; gap: 6px; font: 10.5px/1 var(--mono); color: var(--teal); min-width: 0; }
-.orrery-app .rm-anchor img { height: 56px; width: auto; max-width: 100px; border-radius: 3px; flex: none; background: #22232e; }
-.orrery-app .rm-anchor .missing { width: 44px; height: 56px; aspect-ratio: auto; border-radius: 3px; flex: none; cursor: default; }
-.orrery-app .rm-anchor .missing .i { width: 14px; height: 14px; }
-.orrery-app .rm-strip { display: flex; flex-direction: column; gap: 6px; }
+/* a scene's anchors (#371): what its REMEMBER: lines hand on, in a strip like the takes', sized by its grip (--rm-h) */
+.orrery-app .rm-panel { display: flex; align-items: stretch; margin-top: 6px; font-size: 11px; }
+.orrery-app .rm-panel .rm-head { min-height: var(--rm-h, 72px); cursor: help; }
+.orrery-app .rm-panel .grip { align-self: flex-end; flex: none; width: 12px; height: 12px; cursor: ns-resize; touch-action: none; opacity: .7;
+  background: linear-gradient(135deg, transparent 45%, var(--faint) 45% 55%, transparent 55% 70%, var(--faint) 70% 80%, transparent 80%); }
+.orrery-app .rm-panel .grip:hover { opacity: 1; }
+.orrery-app .rm-strip { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .orrery-app .rm-line { display: flex; flex-direction: column; gap: 3px; }
 .orrery-app .rm-line.replaced { opacity: .5; }
+.orrery-app .rm-line.held .rm-item { opacity: .4; }
 .orrery-app .rm-frames { display: flex; flex-wrap: wrap; gap: 8px; }
+.orrery-app .rm-anchor { display: flex; align-items: flex-end; gap: 2px; }
+.orrery-app .rm-anchor img, .orrery-app .rm-anchor .missing { height: var(--rm-h, 72px); width: auto; min-width: 40px; border-radius: 3px; background: #22232e;
+  border: 1px solid var(--teal); aspect-ratio: auto; cursor: default; }
+.orrery-app .rm-anchor .rm-n { font: 10px/1 var(--mono); color: var(--teal); align-self: flex-end; padding: 0 2px 2px; }
 .orrery-app .rm-item { display: flex; align-items: flex-end; gap: 2px; flex-wrap: wrap; }
-.orrery-app .rm-item img { height: 72px; width: auto; min-width: 40px; border-radius: 3px; background: #22232e; border: 1px solid transparent; }
+.orrery-app .rm-item img { height: var(--rm-h, 72px); width: auto; min-width: 40px; border-radius: 3px; background: #22232e; border: 1px solid transparent; }
 .orrery-app .rm-item img.pick { cursor: pointer; }
 .orrery-app .rm-item img.pick:hover { border-color: var(--brass); }
 .orrery-app .rm-item .rm-n, .orrery-app .rm-item .rm-none { font: 10px/1 var(--mono); color: var(--faint); align-self: flex-end; padding: 0 2px 2px; }

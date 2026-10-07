@@ -265,7 +265,7 @@ def ui_save(home: Home, args: dict) -> dict:
     """App switches kept in the home: `quickstart` (New templates open with their comments),
     `dividers` (chunk dividers in the editor), `timeline` (the reel's clips under its scenes), sample surfing's
     `surf_numbered` (#206), the live preview's `preview_light` (#205), and its sizes
-    (`clip_min`: a clip's shorter side in the clips view; `take_min`: a take's, under it; `preview_fps`: the smooth live preview's pictures a second; `preview_edge`: its long edge)."""
+    (`clip_min`: a clip's shorter side in the clips view; `take_min`: a take's, under it; `anchor_h`: the anchors' height (#371); `preview_fps`: the smooth live preview's pictures a second; `preview_edge`: its long edge)."""
     for flag in uistate.FLAGS:
         if flag in args:
             uistate.set_flag(home, flag, bool(args[flag]))
@@ -815,6 +815,13 @@ def anchor(home: Home, args: dict) -> Path:
     if not path.is_file():
         raise ApiError(404, f"image {image} has no stored anchor yet.")
     return path
+
+
+def anchors_stored(home: Home, args: dict) -> dict:
+    """The images that have a stored anchor (#371): with Orrery Refs' keep_sent on, those are held."""
+    from orrery import anchors
+
+    return {"images": sorted(anchors.stored(home))}
 
 
 def history_runs(home: Home, args: dict) -> dict:
@@ -1605,6 +1612,7 @@ ROUTES = [
     ("POST", "/orrery/chain/end", chain_end),
     ("GET", "/orrery/chain/video", chain_video),
     ("GET", "/orrery/anchor", anchor),
+    ("GET", "/orrery/anchors", anchors_stored),
     ("GET", "/orrery/history", history_runs),
     ("GET", "/orrery/writers", writer_texts),
     ("POST", "/orrery/writers", writer_save),

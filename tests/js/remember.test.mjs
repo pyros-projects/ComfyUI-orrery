@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { anchorsHTML, framePicks, hintsFor, hintText, rememberLines, sentImages, setFrame, shown } from "../../comfyui/web/app/remember.js";
+import { framePicks, hintsFor, hintText, rememberLines, setFrame, shown, stripHTML } from "../../comfyui/web/app/remember.js";
 
 test("the frames a line takes are chain.frame_picks', every step-th of them", () => {
   assert.deepEqual(framePicks(124, [[50, 50]]).picks, [50]);
@@ -63,21 +63,20 @@ test("a frame picked by eye rewrites just that frame of the line", () => {
 });
 
 
-test("a scene's anchors: the images its lines fill, each once, a CAST member's named (#371)", () => {
-  const remembered = { lines: LINES };
-  assert.deepEqual(sentImages(remembered, 0), [{ n: 1, member: "WOMAN" }, { n: 3, member: "WOMAN" }]);
-  assert.deepEqual(sentImages(remembered, 1), []);  // a RefMod has no anchor
-  assert.deepEqual(sentImages(remembered, 2), [{ n: 4, member: null }]);
-  assert.deepEqual(sentImages(remembered, 5, [2]), []);  // the server's lines say: this scene fills nothing
-  assert.deepEqual(sentImages(null, 0, [2, 5, 2]), [{ n: 2, member: null }, { n: 5, member: null }]);  // before they come
-});
-
-test("the anchors under the takes show what Orrery Refs last sent to each image (#371)", () => {
-  const app = { api: { anchorURL: (n, v) => `/orrery/anchor?image=${n}&v=${v}` }, data: { anchorV: 7 } };
-  assert.equal(anchorsHTML(app, []), "");
-  const html = anchorsHTML(app, [{ n: 1, member: "WOMAN" }, { n: 3, member: null }]);
-  assert.match(html, /src="\/orrery\/anchor\?image=1&amp;v=7"/);
-  assert.match(html, /→ image 1 · @WOMAN</);
-  assert.match(html, /→ image 3</);
-  assert.equal(html.match(/class="rm-anchor"/g).length, 2);
+test("a scene's anchors: a head says what they are, a grip sizes them, keep_sent holds what has an anchor (#371)", () => {
+  const app = { api: { anchorURL: (n, v) => `/orrery/anchor?image=${n}&v=${v}` }, data: { anchorV: 7, anchor_h: 120, remembered: { lines: LINES } } };
+  const off = stripHTML(app, 0, "/clip.mp4");
+  assert.match(off, /class="th-clip">anchors</);
+  assert.match(off, /<i>images<\/i><b>1, 3<\/b>/);
+  assert.match(off, /<i>keep_sent<\/i><b>off<\/b>/);
+  assert.match(off, /--rm-h:120px/);
+  assert.match(off, /data-rm-grip/);
+  assert.doesNotMatch(off, /held · image/);  // off: the frames of the circled take are what goes on
+  const on = stripHTML(app, 0, "/clip.mp4", { keep: true, stored: [1] });
+  assert.match(on, /src="\/orrery\/anchor\?image=1&amp;v=7"/);
+  assert.match(on, /<i>held<\/i><b>1<\/b>/);
+  assert.doesNotMatch(on, /held · image 3/);  // no anchor stored: Orrery Refs fetches it fresh, as with keep_sent off
+  assert.equal(on.match(/class="rm-line[^"]*held"/g).length, 1);  // the line that fills only image 1: its frames wait
+  assert.match(stripHTML(app, 1, "/clip.mp4"), /<i>images<\/i><b>none<\/b>/);  // a RefMod has no anchor
+  assert.equal(stripHTML(app, 2, "/clip.mp4"), "");  // never plays at this seed
 });

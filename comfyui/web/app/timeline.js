@@ -12,6 +12,7 @@ import { ghostHTML, kept, playAll, statHTML, stripHeadHTML } from "./results.js"
 export async function loadChain(app) {
   try { app.data.chain = await app.api.chain(app.bridge.chain()); } catch { app.data.chain = null; }
   await fetchTemplates(app, Object.values(app.data.chain?.takes || {}).flat());
+  try { app.data.anchors = (await app.api.anchors()).images; } catch { app.data.anchors = []; }  // the ones keep_sent holds (#371)
   app.data.anchorV = Date.now();  // anchors change in place: a new run, a new URL
 }
 

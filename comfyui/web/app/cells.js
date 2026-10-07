@@ -8,7 +8,7 @@ import { castNames } from "../orrery-complete.js";
 import { highlight } from "./highlight.js";
 import { splitCells } from "./model.js";
 import { annotationLines, mergeHints, shownHints } from "./annotate.js";
-import { anchorsHTML, fillStrip, hintsFor, openPicker, rememberLines, sentImages, stripHTML } from "./remember.js";
+import { fillStrip, hintsFor, openPicker, rememberLines, stripHTML } from "./remember.js";
 import { clipRatio, olderTakes, paintLive, sectionHTML, sourceClip, wireClips } from "./timeline.js";
 import { paintStage } from "./stage.js";
 import { takesOf } from "./results.js";
@@ -58,6 +58,9 @@ export function renderCells(app, at = null) {
 
 const painted = new WeakMap();  // a cell → what its highlight was made from
 
+// The height the anchors' frames are cut at: their size on screen (anchor_h, #371), sharp on a dense display.
+const cutHeight = (app) => Math.round(Math.min(720, Math.max(96, (Number(app.data.anchor_h) || 72) * (globalThis.devicePixelRatio || 1))));
+
 // Highlights with the chunk dividers, and the sections when what they show changed. A cell is highlighted
 // again only when something it shows changed (#218): its text, its divider, its hints, the libraries known,
 // the CAST, the segment; what every cell reads is worked out once.
@@ -82,10 +85,12 @@ export function paintCells(app) {
     cell.querySelector("pre").innerHTML = `${highlight(c.text, known, { llm, chunks: local, segment, cast, hints, sceneActs: acts })}​`;
   });
   paintStage(app);  // the preview, when what it shows changed (#305)
-  const sig = JSON.stringify([chunks.map((c) => [c.first, c.last, c.segs, c.images]), app.data.anchorV, (app.data.chain?.clips || []).map((c) => c.version),
+  const keep = !!app.bridge.keepSent?.(), stored = app.data.anchors || [];  // what keep_sent holds (#371)
+  const sig = JSON.stringify([chunks.map((c) => [c.first, c.last, c.segs]), (app.data.chain?.clips || []).map((c) => c.version),
     segment, clipRatio(app), app.data.take_min, remembered?.key, remembered?.lines, olderTakes(app),
     Object.values(app.data.chain?.takes || {}).flat().map((t) => `${t.folder}${t.active ? "*" : ""}`),
-    takesOf(app), app.bridge.props?.orrery_keep, !!app.state?.sweepQueue]);  // the strips' heads (#319)
+    takesOf(app), app.bridge.props?.orrery_keep, !!app.state?.sweepQueue,  // the strips' heads (#319)
+    app.data.anchorV, keep, stored, app.data.anchor_h]);  // the anchors (#371)
   if (sig === app.cellsSig) { if (host.scrollTop !== top) host.scrollTop = top; return; }
   app.cellsSig = sig;
   host.querySelectorAll(".chunkmedia").forEach((m) => {
@@ -95,9 +100,8 @@ export function paintCells(app) {
     const source = line ? sourceClip(app, line.source) : null;
     const body = m.querySelector(".cm-body");
     // a scene's clips; a template without scenes shows its results in the preview (#305)
-    body.innerHTML = (scene >= 0 ? sectionHTML(app, c) : "") + anchorsHTML(app, sentImages(remembered, scene, c?.images))
-      + stripHTML(app, scene, source?.url);
-    fillStrip(body, source?.frames);
+    body.innerHTML = (scene >= 0 ? sectionHTML(app, c) : "") + stripHTML(app, scene, source?.url, { keep, stored });
+    fillStrip(body, source?.frames, cutHeight(app));
   });
   paintLive(app);  // the clip rendering now keeps its preview through a redraw
   if (host.scrollTop !== top) host.scrollTop = top;
@@ -188,6 +192,27 @@ export function wireCells(app, { onEdit, onKey, onFocus, onBlur }) {
     }
   });
   wireClips(app, host);
+  host.addEventListener("pointerdown", (e) => {  // the grip at the anchors' end sizes them (#371), as a take's does
+    if (!e.target.closest("[data-rm-grip]")) return;
+    e.preventDefault();
+    e.stopPropagation();  // not a drag of the node
+    const start = Number(app.data.anchor_h) || 72, y0 = e.clientY;
+    let h = start;
+    const move = (m) => {
+      h = Math.min(480, Math.max(32, Math.round(start + m.clientY - y0)));
+      host.querySelectorAll(".rm-panel").forEach((p) => p.style.setProperty("--rm-h", `${h}px`));
+    };
+    const up = async () => {
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerup", up, true);
+      if (h === start) return;
+      app.data.anchor_h = h;
+      paintCells(app);  // the frames cut again at the new size
+      try { Object.assign(app.data, await app.api.saveUi({ anchor_h: h })); } catch (err) { app.fail(err); }
+    };
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerup", up, true);
+  });
   host.addEventListener("click", (e) => {  // a remembered frame clicked: pick another by eye
     const img = e.target.closest(".rm-item img.pick");
     if (!img) return;

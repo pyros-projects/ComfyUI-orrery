@@ -225,8 +225,9 @@ checks) are left out.
 
 ### Fixed
 
-- The anchors are back (#371): under the takes of a scene with `REMEMBER:`, each picture it fills shows what Orrery Refs
-  last sent to it (`→ image N`, and the CAST member it is for), as the clips column did before the dials took its place.
+- The anchors are back (#371), under a scene's takes, in a strip like theirs: what its `REMEMBER:` lines hand on to the
+  clips after it, the frames of the circled take or, with Orrery Refs' `keep_sent` on, the stored anchor it holds; a
+  head says which images and whether `keep_sent` is on, and a grip sizes it. They went with the clips column (bac51f4).
 - No seams in Orrery Film's film (#361, #362, under #359): a clip's last frames and the end of its sound are played as
   the next clip's decode has them, as one decode of the whole film would, so the brightness jumps and the clicks where
   clips met are gone, and the sound's level eases across the seam (up to 1.5 dB, as H3 Continuum's seam guard does).

@@ -69,7 +69,7 @@ def test_routes_cover_the_contract():
         ("GET", "/orrery/home"), ("POST", "/orrery/home"),
         ("GET", "/orrery/chain"), ("GET", "/orrery/chain/thumb"), ("POST", "/orrery/chain/move"), ("POST", "/orrery/chain/pick"), ("POST", "/orrery/chain/delete"), ("POST", "/orrery/chain/clear"), ("GET", "/orrery/chain/tree"), ("POST", "/orrery/chain/walk"), ("POST", "/orrery/chain/end"),
         ("GET", "/orrery/chain/video"),
-        ("GET", "/orrery/anchor"),
+        ("GET", "/orrery/anchor"), ("GET", "/orrery/anchors"),
         ("GET", "/orrery/history"),
         ("GET", "/orrery/writers"),
         ("POST", "/orrery/writers"),
@@ -142,7 +142,7 @@ def test_register_attaches_every_route_through_one_adapter(home, tmp_path):
     kind, status, body = hit("GET", "/orrery/presets", query=q)
     assert (kind, status) == ("json", 200) and body["favorites"] == [] and body["quickstart"] is True
     assert hit("POST", "/orrery/ui", query=q, body={"quickstart": False}) == \
-        ("json", 200, {"quickstart": False, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "preview_fps": 12, "preview_edge": 1024,
+        ("json", 200, {"quickstart": False, "dividers": True, "timeline": True, "log_prompts": True, "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "anchor_h": 72, "preview_fps": 12, "preview_edge": 1024,
                      "annotations_show": "appended", "picture_slots": "gallery"})
     assert hit("GET", "/orrery/presets", query=q)[2]["quickstart"] is False
     assert hit("GET", "/orrery/preset", query={**q, "name": "nope"})[1] == 404
@@ -795,12 +795,13 @@ def test_an_anchor_is_served_by_image_number(home):
     assert ok(home, webapi.anchor, image="3").name == "0000.png"
     assert api(home, webapi.anchor, image="4")[0] == 404
     assert api(home, webapi.anchor, image="x")[0] == 400
+    assert ok(home, webapi.anchors_stored) == {"images": [3]}  # the ones keep_sent would hold (#371)
 
 
 def test_the_editor_switches_travel_with_the_presets_and_are_saved(home):
     assert ok(home, webapi.presets)["dividers"] is True and ok(home, webapi.presets)["timeline"] is True
     assert ok(home, webapi.ui_save, timeline=False) == {"quickstart": True, "dividers": True, "timeline": False, "log_prompts": True,
-                                                         "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "preview_fps": 12, "preview_edge": 1024,
+                                                         "surf_numbered": True, "preview_light": True, "clip_min": 360, "take_min": 54, "anchor_h": 72, "preview_fps": 12, "preview_edge": 1024,
                                                          "annotations_show": "appended", "picture_slots": "gallery"}
     assert ok(home, webapi.ui_save, clip_min=480)["clip_min"] == 480 and ok(home, webapi.presets)["clip_min"] == 480
     assert ok(home, webapi.presets)["timeline"] is False
