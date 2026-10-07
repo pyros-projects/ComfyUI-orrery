@@ -252,6 +252,11 @@
 .orrery-app .cm-takes.results .th-top [aria-pressed="true"] { color: var(--brass); border-color: var(--brass); }
 .orrery-app .take .r-audio { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 /* the frames a scene's REMEMBER: lines take, cut from its clip; where they go */
+.orrery-app .rm-anchors { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.orrery-app .rm-anchor { display: flex; align-items: center; gap: 6px; font: 10.5px/1 var(--mono); color: var(--teal); min-width: 0; }
+.orrery-app .rm-anchor img { height: 56px; width: auto; max-width: 100px; border-radius: 3px; flex: none; background: #22232e; }
+.orrery-app .rm-anchor .missing { width: 44px; height: 56px; aspect-ratio: auto; border-radius: 3px; flex: none; cursor: default; }
+.orrery-app .rm-anchor .missing .i { width: 14px; height: 14px; }
 .orrery-app .rm-strip { display: flex; flex-direction: column; gap: 6px; }
 .orrery-app .rm-line { display: flex; flex-direction: column; gap: 3px; }
 .orrery-app .rm-line.replaced { opacity: .5; }

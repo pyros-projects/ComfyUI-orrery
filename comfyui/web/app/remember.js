@@ -126,6 +126,28 @@ export function stripHTML(app, scene, sourceURL) {
   }).join("")}</div>`;
 }
 
+// The images a scene's REMEMBER: lines fill, in order, each once: from the server's lines (they name a CAST
+// member's image too), else the `as image N` the chunk read itself (model.js chunkInfo).
+export function sentImages(remembered, scene, images = []) {
+  const out = new Map();
+  for (const l of (remembered?.lines || []).filter((x) => x.scene === scene)) {
+    for (const f of l.fills) {
+      const n = /^image (\d+)$/.exec(f.what)?.[1];
+      if (n && !out.has(Number(n))) out.set(Number(n), f.member);
+    }
+  }
+  if (!remembered) for (const n of images) if (!out.has(n)) out.set(n, null);
+  return [...out].map(([n, member]) => ({ n, member }));
+}
+
+// The anchors under a scene's takes (#371): what Orrery Refs last sent to each image the scene fills, stored in
+// the home (anchors/image_N); an image without one yet shows the placeholder (shell.js).
+export function anchorsHTML(app, sent) {
+  if (!sent.length) return "";
+  return `<div class="rm-anchors">${sent.map(({ n, member }) => `<div class="rm-anchor" title="Image ${n}: the frames Orrery Refs last sent to it">`
+    + `<img alt="" src="${esc(app.api.anchorURL(n, app.data.anchorV))}"><span>→ image ${n}${member ? ` · @${esc(member)}` : ""}</span></div>`).join("")}</div>`;
+}
+
 // The frames of every group in `box`, cut from the clip they come from; `count` the clip's frames if known.
 export async function fillStrip(box, count) {
   for (const item of box.querySelectorAll(".rm-item[data-url]:not(.filled)")) {

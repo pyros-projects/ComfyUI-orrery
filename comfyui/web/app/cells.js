@@ -8,7 +8,7 @@ import { castNames } from "../orrery-complete.js";
 import { highlight } from "./highlight.js";
 import { splitCells } from "./model.js";
 import { annotationLines, mergeHints, shownHints } from "./annotate.js";
-import { fillStrip, hintsFor, openPicker, rememberLines, stripHTML } from "./remember.js";
+import { anchorsHTML, fillStrip, hintsFor, openPicker, rememberLines, sentImages, stripHTML } from "./remember.js";
 import { clipRatio, olderTakes, paintLive, sectionHTML, sourceClip, wireClips } from "./timeline.js";
 import { paintStage } from "./stage.js";
 import { takesOf } from "./results.js";
@@ -82,7 +82,7 @@ export function paintCells(app) {
     cell.querySelector("pre").innerHTML = `${highlight(c.text, known, { llm, chunks: local, segment, cast, hints, sceneActs: acts })}​`;
   });
   paintStage(app);  // the preview, when what it shows changed (#305)
-  const sig = JSON.stringify([chunks.map((c) => [c.first, c.last, c.segs]), (app.data.chain?.clips || []).map((c) => c.version),
+  const sig = JSON.stringify([chunks.map((c) => [c.first, c.last, c.segs, c.images]), app.data.anchorV, (app.data.chain?.clips || []).map((c) => c.version),
     segment, clipRatio(app), app.data.take_min, remembered?.key, remembered?.lines, olderTakes(app),
     Object.values(app.data.chain?.takes || {}).flat().map((t) => `${t.folder}${t.active ? "*" : ""}`),
     takesOf(app), app.bridge.props?.orrery_keep, !!app.state?.sweepQueue]);  // the strips' heads (#319)
@@ -95,7 +95,8 @@ export function paintCells(app) {
     const source = line ? sourceClip(app, line.source) : null;
     const body = m.querySelector(".cm-body");
     // a scene's clips; a template without scenes shows its results in the preview (#305)
-    body.innerHTML = (scene >= 0 ? sectionHTML(app, c) : "") + stripHTML(app, scene, source?.url);
+    body.innerHTML = (scene >= 0 ? sectionHTML(app, c) : "") + anchorsHTML(app, sentImages(remembered, scene, c?.images))
+      + stripHTML(app, scene, source?.url);
     fillStrip(body, source?.frames);
   });
   paintLive(app);  // the clip rendering now keeps its preview through a redraw
