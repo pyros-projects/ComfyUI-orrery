@@ -24,7 +24,7 @@
   <a href="#features">Features</a> &middot;
   <a href="#documentation">Docs</a> &middot;
   <a href="docs/h3.md">H3 guide</a> &middot;
-  <a href="https://github.com/pyros-projects/orrery/issues/new">Report Bug</a>
+  <a href="https://github.com/pyros-projects/ComfyUI-orrery/issues/new">Report Bug</a>
 </div>
 
 <br>
@@ -96,7 +96,7 @@ run to be different, and a little better than the last, orrery is for you.
 
 ```bash
 cd /path/to/ComfyUI/custom_nodes
-git clone https://github.com/pyros-projects/orrery.git
+git clone https://github.com/pyros-projects/ComfyUI-orrery.git
 ```
 
 Restart ComfyUI and open a workflow from **Templates → orrery** (or drag one in
