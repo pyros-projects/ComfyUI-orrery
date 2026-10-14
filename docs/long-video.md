@@ -241,4 +241,4 @@ the one that decides, scored from 1 to 5 (leakage 5 = none):
   clip's own frames, for the clips after it.
 
 The rounds with every sheet are in the comments of
-[#4](https://github.com/pyros-projects/orrery/issues/4).
+[#4](https://github.com/pyros-projects/ComfyUI-orrery/issues/4).
