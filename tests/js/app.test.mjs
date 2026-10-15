@@ -818,9 +818,9 @@ test("a clip's takes have the results' head: + take, ×N, 📌 and play on top, 
   assert.match(html, /clip 2<\/span><span class="th-scene" title="the walk">the walk/);
   assert.match(html, /<i>takes<\/i><b>2<\/b>.*<i>circled<\/i><b>#2<\/b>.*<i>seed<\/i><b>7 \+ 2<\/b>.*<i>newest<\/i><b>05:09<\/b>/);
   assert.doesNotMatch(html, /other prompt/);  // none made with another prompt
-  const next = takesHeadHTML(app, 4, [], { index: 3 }, false);  // a clip before its turn: no take to make, play or delete
-  assert.match(next, /aria-disabled="true" title="Clip 5 comes after clip 4/);
-  assert.doesNotMatch(next, /data-scene-act="gen"|data-playall|th-low/);
+  const next = takesHeadHTML(app, 4, [], { index: 3 });  // a clip before its turn starts afresh (#415): a take to make
+  assert.match(next, /data-scene-act="gen" data-chunk="3" data-seg="4"/);
+  assert.doesNotMatch(next, /aria-disabled|data-playall|th-low/);  // nothing yet to play or delete
 });
 
 test("the results' head is the one every take strip has, and play all comes with two videos (#319)", async () => {

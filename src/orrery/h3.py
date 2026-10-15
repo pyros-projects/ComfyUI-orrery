@@ -946,12 +946,14 @@ def compile_scene(src: str, seed: int, libraries: Mapping[str, Library],
                   weights: Mapping[str, float] | None = None, target: str = "h3-base",
                   segment: int = 0, packed: bool = False, held: set[int] | frozenset = frozenset(),
                   cell: int | None = None, standing: set[int] | frozenset = frozenset(),
-                  past: Mapping[int, dict] | None = None) -> Compiled:
+                  past: Mapping[int, dict] | None = None, film: frozenset[int] | None = None) -> Compiled:
     """`segment` picks a reel's clip (see orrery.reel); plain screenplays ignore it. `packed`: the
     images are renumbered to the ones this clip uses (Orrery Refs hands on only those). `cell`: the
     run of a `: grid` (orrery.batch); None rolls its axes. `standing`: the images wired into Orrery
     Refs: one a REMEMBER: line keeps stays in the clip as wired until those frames exist. `past`: what the
-    reel's clips before this one rendered, from their takes (#261; see reel._unroll)."""
+    reel's clips before this one rendered, from their takes (#261; see reel._unroll). `film`: the segments the
+    reel's film holds (#415): a clip whose clip before it lacks starts afresh, and the clips it lacks send nothing;
+    None (not known) takes the reel as written."""
     from orrery.batch import prepare
     from orrery.dsl import parse, strip_exports, with_inline
     from orrery.reel import build_segment, shared_sends, split_reel
@@ -974,14 +976,14 @@ def compile_scene(src: str, seed: int, libraries: Mapping[str, Library],
     sends: dict[int, dict] = {}
     sent_mods: dict[str, dict] = {}  # RefMods made from the reel's own frames, which Orrery RefMods builds
     if reel:
-        scene, picks, path, kept = build_segment(reel, seed, libraries, weights, segment, lint, past)
+        scene, picks, path, kept = build_segment(reel, seed, libraries, weights, segment, lint, past, film)
         absent = drop_absent(scene)  # a chunk without a member leaves its definition and its RefMods out
         lint += [Issue("warn", problem) for m in absent for problem in m.problems]
         if reel.send_slots:
             if scene.mode != "ref2va":
                 raise ValueError("REMEMBER: hands frames to Reference to Video as reference images, so it needs an "
                                  "@h3 references screenplay.")
-            sends = reel.ready(segment, set(held) & set(reel.send_slots), path)
+            sends = reel.ready(segment, set(held) & set(reel.send_slots), path, film)
             # a sent image that some CAST gives a member goes only where a member of this clip has it (not to a
             # clip without that member, nor to one whose CAST redefines it without the image); one that no CAST
             # names goes along with every clip after it
@@ -994,7 +996,7 @@ def compile_scene(src: str, seed: int, libraries: Mapping[str, Library],
                                           + (f"the frames from clip {sends[n]['segment'] + 1} replace the wired picture."
                                              if "segment" in sends.get(n, {}) else "the wired picture until those frames exist.")))
         if reel.send_refmods:
-            sent_mods = reel.refmods_ready(segment, path)
+            sent_mods = reel.refmods_ready(segment, path, film)
             late = set(reel.send_refmods) - set(sent_mods)  # its chunk has not played yet: nothing to bring back
             for m in scene.cast:
                 m.sources = [s for s in m.sources if not (s.kind == "refmod" and s.name in late)]
@@ -1034,6 +1036,6 @@ def compile_scene(src: str, seed: int, libraries: Mapping[str, Library],
                     segment if reel else 0, reel.segments if reel else 0, refs,
                     sends, reel.send_slots if reel else [],
                     [{**r, "sent": sent_mods[r["name"]]} if r["name"] in sent_mods else r for r in clip_refmods(scene)],
-                    clip_images(scene, refs), reel.before(segment, path) if reel else None,
+                    clip_images(scene, refs), reel.continues(segment, path, film) if reel else None,
                     bool(reel and reel.blocks[path[segment][0]].test), bool(reel and reel.uses_input), named,
                     path[segment][0] if reel else None, kept if reel else None)

@@ -380,6 +380,12 @@ class Reel:
             return None
         return next((t for t in range(segment - 1, -1, -1) if not self.blocks[path[t][0]].test), None)
 
+    def continues(self, segment: int, path: list[tuple[int, int]], film: frozenset[int] | None = None) -> int | None:
+        """What `segment` continues (`before`), as the film holds it (#415): when `film` (the segments the reel's
+        film holds; None: not known) lacks that clip, None, so the clip starts afresh as the first clip does."""
+        before = self.before(segment, path)
+        return None if film is not None and before is not None and before != INPUT and before not in film else before
+
     def recalls(self, segment: int, path: list[tuple[int, int]]) -> int | None:
         """The segment whose memory `segment` carries on (what was sent, `$x~N`): the one it continues
         with `AFTER:`, so a branch keeps its own (none after the input video: what the head remembers
@@ -421,20 +427,22 @@ class Reel:
         return out
 
     def ready(self, segment: int, held: set[int] | frozenset = frozenset(),
-              path: list[tuple[int, int]] | None = None) -> dict[int, dict]:
+              path: list[tuple[int, int]] | None = None, film: frozenset[int] | None = None) -> dict[int, dict]:
         """The sent images that exist in `segment`, each with the segment its frames come from: sent by a
         chunk that first played before it, for a segment its `for` lists (any later one without). When
         several SEND: lines fill one image there, the one sent last wins (a later line within a chunk).
         A `held` image (Orrery Refs' keep_sent, with a stored anchor) exists from segment 0 within its
-        `for` list, and comes from that anchor instead."""
-        return self._ready(segment, held, path, refmods=False)
+        `for` list, and comes from that anchor instead. With `film` known (#415), a clip it does not hold sends
+        nothing."""
+        return self._ready(segment, held, path, refmods=False, film=film)
 
-    def refmods_ready(self, segment: int, path: list[tuple[int, int]] | None = None) -> dict[str, dict]:
+    def refmods_ready(self, segment: int, path: list[tuple[int, int]] | None = None,
+                      film: frozenset[int] | None = None) -> dict[str, dict]:
         """The sent RefMods that exist in `segment`, by the rules of `ready`: from the clip after the
         sending one (or in the segments its `for` lists), the one sent last winning."""
-        return self._ready(segment, frozenset(), path, refmods=True)
+        return self._ready(segment, frozenset(), path, refmods=True, film=film)
 
-    def _ready(self, segment: int, held, path, refmods: bool) -> dict:
+    def _ready(self, segment: int, held, path, refmods: bool, film: frozenset[int] | None = None) -> dict:
         out: dict = {}
         latest: dict = {}  # target → the segment its winning send so far comes from
         if path is None:
@@ -449,7 +457,8 @@ class Reel:
             spans = (send.segments or [[0, None]]) if key in held else fills(send, start, starts)
             when = -2 if start is None else start
             if (any(lo <= segment and (hi is None or segment <= hi) for lo, hi in spans)
-                    and (key in held or start in behind or start == INPUT) and when >= latest.get(key, -2)):
+                    and (key in held or start == INPUT or (start in behind and (film is None or start in film)))
+                    and when >= latest.get(key, -2)):
                 latest[key] = when
                 out[key] = ({"held": True} if key in held
                             else {"segment": start, "frames": [list(f) for f in send.frames],
@@ -838,9 +847,11 @@ def resolved(reel: Reel, seed: int, libraries: Mapping[str, Library], weights: M
 
 def build_segment(reel: Reel, seed: int, libraries: Mapping[str, Library],
                   weights: Mapping[str, float] | None, segment: int,
-                  lint: list[Issue], past: Mapping[int, dict] | None = None) -> tuple[Scene, list[Pick], list[tuple[int, int]], dict]:
+                  lint: list[Issue], past: Mapping[int, dict] | None = None,
+                  film: frozenset[int] | None = None) -> tuple[Scene, list[Pick], list[tuple[int, int]], dict]:
     """Segment `segment` of the reel as a scene, with the picks that went into it, the path the reel took to it
-    and what its take keeps (#261): its bindings and its END ON:. `past`: what the clips before it rendered."""
+    and what its take keeps (#261): its bindings and its END ON:. `past`: what the clips before it rendered;
+    `film`: the segments the film holds (#415, see Reel.continues)."""
     if segment < 0:
         raise ValueError(f"segment {segment} is negative; segments count from 0.")
     forever = next((i for i, b in enumerate(reel.blocks) if b.repeat is None), None)
@@ -858,7 +869,7 @@ def build_segment(reel: Reel, seed: int, libraries: Mapping[str, Library],
     for name, was, now in world.kept:
         lint.append(Issue("info", f"${name} stays {_short(was)} as the film rendered it (now it would roll {_short(now)}): "
                                   "render clip 1 again to change it."))
-    continues = reel.before(segment, path)
+    continues = reel.continues(segment, path, film)
     if opening or continues is None:
         before, before_picks = None, []
     elif continues == INPUT:  # the head's END ON: is how the input video ends

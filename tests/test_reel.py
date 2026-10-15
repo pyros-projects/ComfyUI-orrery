@@ -616,6 +616,44 @@ def test_a_test_scene_starts_afresh_and_its_memory_reaches_the_clips_after_it():
     assert (now.continues, now.test, then.continues, then.test) == (None, True, 1, False)
 
 
+def test_a_clip_whose_clip_before_is_not_in_the_film_starts_afresh():
+    """#415: a scene rolled before the clip it continues was made opens as the first clip does: no END ON: before
+    it, no pinned context in its length, and what clips not in the film would send is left out."""
+    src = """@h3 references 16:9 lite
+CAST
+GIRL (image 1, image 3): the young woman
+SCENE the forest
+SHOT 5s: static
+GIRL stands in a forest.
+SEND: frame 0 to image 3
+END ON: the girl stops by a tree
+SCENE the beach
+SHOT 5s: static
+GIRL walks on a beach.
+SEND: frame 0 to image 3
+END ON: the girl sits down
+SCENE the end
+SHOT 5s: static
+GIRL waves.
+"""
+    known = compile_scene(src, 1, {}, target="h3-base", segment=2)  # the film not known (the CLI): as written
+    held = compile_scene(src, 1, {}, target="h3-base", segment=2, film=frozenset({0, 1}))
+    gap = compile_scene(src, 1, {}, target="h3-base", segment=2, film=frozenset({0}))
+    alone = compile_scene(src, 1, {}, target="h3-base", segment=2, film=frozenset())
+    for clip in (known, held):
+        assert clip.continues == 1 and "The shot opens as the girl sits down" in clip.text and clip.scene.duration > 5
+        assert clip.sends[3]["segment"] == 1  # the beach's frames, sent last
+    for clip in (gap, alone):
+        assert clip.continues is None and "opens as" not in clip.text and clip.scene.duration == 5
+    assert gap.sends[3]["segment"] == 0  # the beach was never made: the forest's frames, which are in the film
+    assert 3 not in alone.sends  # nothing in the film sends anything
+    first = compile_scene(src, 1, {}, target="h3-base", segment=0, film=frozenset())
+    assert first.continues is None and "opens as" not in first.text  # the first clip, as ever
+    after = src.replace("SCENE the end\n", "SCENE the end\nAFTER: the forest\n")
+    branch = compile_scene(after, 1, {}, target="h3-base", segment=2, film=frozenset({1}))
+    assert branch.continues is None and "opens as" not in branch.text  # AFTER: a scene whose clip is not in the film
+
+
 def test_scenes_after_test_scenes_continue_the_film_and_remember_the_tests():
     src = """@h3 references 16:9 lite
 CAST
