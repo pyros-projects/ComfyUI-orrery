@@ -115,7 +115,7 @@ Nodes under **orrery**:
     dial is: the template stays as written, and saving bakes it in. **Test** jumps to the Test tab and rolls. **Write** has
     the language model write the reel's next scene, the shot between two
     frames or a prompt from a picture, in the 🎲 takes sheet every ask uses
-    (#333): N takes, steered, with what is sent along, one put in or several as
+    (#333): N takes at each **Generate takes**, steered, with what is sent along, one put in or several as
     a choice ([llm.md](llm.md)). With an
     API endpoint as the language model (the gear), it asks the endpoint
     directly, beside ComfyUI's queue, and **Write now** in the footer writes
@@ -256,7 +256,7 @@ Nodes under **orrery**:
     a folder (`couture_form`, `couture_house` → couture); what the language
     model wrote waits on top for review. Built-ins become yours with **Make it
     mine**. Under a library of yours, **Add** takes entries you type, and the yellow
-    **Generate** asks the language model for new ones in the 🎲 sheet (#323): none
+    **Generate** opens the 🎲 sheet (#323), whose **Generate takes** asks the language model for new ones: none
     the library has, steered as you like, added when you pick them. A library's entries load when you open it, so a home of a hundred
     thousand entries opens at once; the search finds libraries by name and by
     entry. Drag the list's edge to widen it; a long property opens when you
@@ -267,7 +267,7 @@ Nodes under **orrery**:
     and sets the seed to fixed; the next run rolls them with today's libraries
     and learned weights (#259). An output whose template EXPORTed data shows it as a sheet
     under its prompt (**JSON** copies it). A slot there still to be written from the picture
-    (`image output`, #175) has a 🎲: takes written from the picture, **Use selected** keeps one.
+    (`image output`, #175) has a 🎲: **Generate takes** writes takes from the picture, **Use selected** keeps one.
     On the left (#290): **All outputs**, **All images**, **All videos**, then the
     days, newest first, each with its `images` and `videos`, then the
     collections. What belongs together is one card, an album with up to eight

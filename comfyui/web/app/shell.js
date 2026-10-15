@@ -234,13 +234,14 @@ export class OrreryApp {
   }
 
   // A sheet opens at the app's top, where most of its buttons are; one that belongs to something lower down (a
-  // scene's 📊) opens just under it, or `over` it (a clip), as far as it fits (#219). The big view centres it.
-  openSheet(html, near = null, { over = false } = {}) {
+  // scene's 📊) opens just under it, or `over` it (a clip), as far as it fits (#219). The big view centres it. A click
+  // beside it closes it, unless it `stay`s: a takes sheet, which would lose its takes and the ones being written (#438).
+  openSheet(html, near = null, { over = false, stay = false } = {}) {
     this.sheetWatch?.disconnect();
     const host = this.$(".sheet-host");
     host.innerHTML = `<div class="sheet">${html}</div>`;
     const sheet = host.firstChild, panel = sheet.firstElementChild;
-    sheet.addEventListener("mousedown", (e) => { if (e.target === sheet) this.closeSheet(); });
+    if (!stay) sheet.addEventListener("mousedown", (e) => { if (e.target === sheet) this.closeSheet(); });
     if (!panel) return sheet;
     const at = near && !this.state.big ? near.getBoundingClientRect() : null;
     // on screen, in px: the canvas draws the node scaled, and often taller than the window. Placed again whenever it

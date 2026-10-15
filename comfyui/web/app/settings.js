@@ -151,7 +151,7 @@ export const SECTION_HTML = {
     <div class="field"><span class="label">Takes a 🎲 asks for</span>
       <div class="row wrap takes-n">${[["slot", "for a <code>--slot--</code>"], ["enhance", "for <code>&gt; enhance</code>"], ["rolled", "rolled from a library"], ["new", "new for a library"], ["continue", "for <b>Continue the reel</b>"], ["story", "for the <b>Story interpolator</b>"], ["describe", "for <b>Prompt from image</b>"]].map(([k, label]) =>
         `<label class="row"><input class="input narrow" type="number" min="1" max="12" data-takes="${k}" value="${s.takes?.[k] ?? 3}" aria-label="Takes ${k}"><span class="muted">${label}</span></label>`).join("")}</div>
-      <span class="muted">More takes asks for as many again.</span></div>
+      <span class="muted">Generate takes asks for that many, each time you press it.</span></div>
     <div class="field"><label class="label" for="oa-llm-n">A library it creates starts with</label>
       <div class="row"><input class="input narrow" id="oa-llm-n" type="number" min="1" max="200" value="${s.entries}"><span class="muted">entries · <code>__name:30__</code> asks for at least 30</span></div></div>
     <div class="field"><label class="label" for="oa-llm-t">Max tokens</label>

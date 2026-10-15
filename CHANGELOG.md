@@ -175,6 +175,10 @@ checks) are left out.
 
 ### Changed
 
+- A takes sheet asks nothing by itself (#436): its **Generate takes**, in place of More takes, asks for the first
+  takes and for each batch after, at a slot's 🎲, a library's, a `>` line's, the Write menu's, the Gallery's and the
+  Libraries tab's. A click beside the sheet leaves it open, so its takes and the ones being written stay; its ×
+  closes it.
 - orrery installs on Python 3.12 as well as 3.13 (#365): many ComfyUI installs run on 3.12, which orrery refused.
 - A scene shows its clips as their strips of takes only (#331): the box of the clip above them is gone, the clip
   big is in the preview, and the take being made forms at the end of its strip, small, beside the preview's big one. The

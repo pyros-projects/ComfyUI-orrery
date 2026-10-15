@@ -138,7 +138,7 @@ slots, which keeps it within a 4B or 8B model's reach):
 - **Continue the reel**: it reads every scene as it rolls at the node's seed
   (picks filled in, with the reel's style and CAST) up to the scene you pick
   (**After**: the end, or any scene), and writes the next `SCENE`s, **in** N
-  scenes **of** S seconds (the sheet waits for these; **More takes** writes), with an
+  scenes **of** S seconds (set these, then **Generate takes** writes), with an
   `END ON:` that picks up that one's. A reel that plays on and on is read until
   the scene first ends (#342). **Replace** puts it in place of the scenes after
   it, **Insert** before them; a screenplay without SCENE lines becomes a reel
@@ -147,8 +147,8 @@ slots, which keeps it within a 4B or 8B model's reach):
   **From** first_frame, the prompt or any scene, **to** last_frame, the prompt
   or any scene, **in** N scenes **of** S seconds; a frame goes along as a
   picture, a scene or the prompt as it rolls (an end as its first shot). The
-  scenes travel from the start's place to the end's. The sheet waits for these
-  choices; **More takes** writes. One scene from frame to frame on a screenplay without scenes is the
+  scenes travel from the start's place to the end's. Set these
+  choices, then **Generate takes** writes. One scene from frame to frame on a screenplay without scenes is the
   fl2va shot, in place of the shots below the header; on a reel the scenes go
   in between, with **Replace** or **Insert**. On an image prompt it writes N
   keyframe prompts, from first_frame to the picture the prompt makes, on a grid
@@ -161,7 +161,7 @@ slots, which keeps it within a 4B or 8B model's reach):
   shots; **Insert** above the shots, or on a reel under your cursor's line.
   Without a picture it writes from the prompt as it rolls.
 
-Each writer opens the 🎲 takes sheet every ask uses (#333): as many takes as
+Each writer opens the 🎲 takes sheet every ask uses (#333); **Generate takes** asks for as many takes as
 the gear's count for that writer says (each its own: a story writes a lot), each a short run of its own (Orrery
 Write with only the frames, the video and the text encoder wired into the node,
 so no video model loads; a run already in the queue goes first), sampled at

@@ -1,6 +1,7 @@
 // Takes at the line (#173): a 🎲 at the end of a slot's line, of a library still to be written and of a `> enhance`
 // line opens a sheet with takes for that place (three, or as many as the settings say, #274), written at the node's
-// seed. More asks for as many more, new against those there are; a steering line goes with them. A click selects a
+// seed. It asks nothing by itself (#436): Generate takes asks, and again for as many more, new against those there
+// are; a steering line goes with them. A click beside the sheet leaves it open (#438). A click selects a
 // take (#276), and Use selected puts it in place of the slot as an unsaved edit; Keep the direction writes the steer
 // into the slot's (the line's) directions; both with Undo. A `> enhance` take is kept for its roll instead: the run
 // that rolls the same prompt uses it. A library's sheet selects several: one still to be written is written in it and
@@ -239,7 +240,7 @@ export function openTakes(app, place, near = null) {
     + (multi ? `<div class="row take-sel"><button class="btn ghost slim" data-tall>All</button><button class="btn ghost slim" data-tnone>None</button><span class="muted" data-tcount></span></div>` : "")
     + `<ol class="take-list${multi ? " multi" : ""}${writer ? " long" : ""}" role="listbox" aria-label="Takes"${multi ? ' aria-multiselectable="true"' : ""}></ol><p class="muted flush take-state" role="status"></p>`
     + `<div class="row take-steer"><input class="input grow" data-steer placeholder="Steer them: darker, older, as an anime character …" aria-label="Steer the takes">`
-    + `<button class="btn" data-tmore>${icon("dice")}More takes</button>`
+    + `<button class="btn" data-tgen title="Ask the language model for takes, new against those there are">${icon("dice")}Generate takes</button>`
     + (picture || writer ? "" : `<button class="btn ghost" data-tkeep title="Write the steer into ${esc(SAID[place.kind])}'s directions, so it keeps rolling that way">${icon("pin")}Keep the direction</button>`) + "</div>"
     + (writer ? '<div class="row wrap take-how"><span class="row take-mode" role="group" aria-label="How several takes go in">'
       + '<button type="button" class="chip" data-tas="written" aria-pressed="true" title="One after the other, in the order you selected them">as written</button>'
@@ -253,7 +254,7 @@ export function openTakes(app, place, near = null) {
     + `${tab || writer ? "" : `<button class="btn${place.kind === "library" || known ? " ghost" : " primary"}" data-tuse title="${useTitle}">${icon("check")}Use selected</button>`}`
     + (known ? `<button class="btn primary" data-tlib title="Write the selected new entries into __${esc(place.what)}__, straight in">${icon("save")}Add to the library</button>`
       : place.kind === "library" ? `<button class="btn primary" data-tlib title="Write the selected entries as __${esc(place.what)}__, straight into your libraries">${icon("save")}Keep as the library</button>` : "")
-    + (writer ? "" : "</div></div>"), near);
+    + (writer ? "" : "</div></div>"), near, { stay: true });
   const list = sheet.querySelector(".take-list"), state = sheet.querySelector(".take-state"), steer = sheet.querySelector("[data-steer]");
   const sendRow = sheet.querySelector(".take-send"), galPick = sheet.querySelector(".take-gal");
   const drawSends = () => {
@@ -360,7 +361,7 @@ export function openTakes(app, place, near = null) {
       + `<button type="button" class="icon-btn tdel" data-tdel="${i}" title="Take it out of the list" aria-label="Take it out of the list">${icon("x")}</button></li>`).join("");
     state.textContent = s.busy ? "Writing…" : s.error || s.note;
     state.classList.toggle("warn", !!s.error && !s.busy);
-    sheet.querySelector("[data-tmore]").disabled = s.busy;
+    sheet.querySelector("[data-tgen]").disabled = s.busy;
     if (use) use.disabled = s.busy || chosen() === null || (enhance && !s.keep);
     sheet.querySelectorAll("[data-tput]").forEach((b) => { b.disabled = s.busy || !s.picked.size; });
     if (pick) {
@@ -450,7 +451,7 @@ export function openTakes(app, place, near = null) {
     app.toast(said, { label: "Undo", run: () => { app.text = before; app.cellsSig = null; if (app.state.tab === "prompt") app.render(); } });
   };
   sheet.querySelector("[data-close]").onclick = () => app.closeSheet();
-  sheet.querySelector("[data-tmore]").onclick = () => ask();
+  sheet.querySelector("[data-tgen]").onclick = () => ask();
   steer.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); ask(); } });
   if (!picture && !writer) sheet.querySelector("[data-tkeep]").onclick = () => {  // a writer's sheet has no Keep the direction
     if (!steer.value.trim()) return steer.focus();
@@ -458,11 +459,11 @@ export function openTakes(app, place, near = null) {
       place.directions = place.directions ? `${place.directions}, ${steer.value.trim()}` : steer.value.trim();
       steer.value = "";
       if (!known) {
-        s.note = `Kept: __${place.what}__ gets the directions “${place.directions}” when you keep it, and More asks with them.`;
+        s.note = `Kept: __${place.what}__ gets the directions “${place.directions}” when you keep it, and Generate takes asks with them.`;
         return draw();
       }
       return app.api.addToLibrary({ name: place.what, entries: [], directions: place.directions })
-        .then(() => { s.note = `__${place.what}__ keeps the directions “${place.directions}”: its top-ups and More ask with them.`; draw(); })
+        .then(() => { s.note = `__${place.what}__ keeps the directions “${place.directions}”: its top-ups and Generate takes ask with them.`; draw(); })
         .catch((err) => { s.error = err.message; draw(); });
     }
     const text = keepDirection(app.text, place, steer.value), moved = text !== app.text;
@@ -470,7 +471,7 @@ export function openTakes(app, place, near = null) {
     if (!moved) return;
     if (place.kind === "slot" || enhance) place.what = `${place.what}, ${steer.value.trim()}`;  // the next takes ask with it
     else place.directions = place.directions ? `${place.directions}, ${steer.value.trim()}` : steer.value.trim();
-    if (enhance) s.keep = null;  // another instruction: its takes come with More
+    if (enhance) s.keep = null;  // another instruction: its takes come with Generate takes
     steer.value = "";
     draw();
   };
@@ -506,7 +507,7 @@ export function openTakes(app, place, near = null) {
       const picked = [...s.picked].sort((a, b) => a - b).filter((i) => !known || from[i] === "new");
       const entries = picked.map((i) => s.takes[i]);
       try {
-        if (known) {  // the sheet stays: More, then add more
+        if (known) {  // the sheet stays: Generate takes, then add more
           const d = await app.api.addToLibrary({ name: place.what, entries });
           picked.forEach((i) => { from[i] = "added"; s.picked.delete(i); });
           s.note = `Added ${d.added} to __${place.what}__.`;
@@ -546,10 +547,9 @@ export function openTakes(app, place, near = null) {
     changed(insertTake(app.text, place, take), "The take is in the editor · an unsaved edit");
   };
   drawSends();
-  // a story and Continue wait for their choices: More takes writes them (#342, #343)
-  const waits = place.kind === "story" || place.kind === "continue";
-  if (waits) s.note = place.kind === "story" ? "Pick where the story starts and ends, how many scenes and how long: More takes writes them."
-    : `Pick ${scenes.length ? "the scene to continue after, " : ""}how many new scenes and how long: More takes writes them.`;
+  // nothing is asked until Generate takes (#436); a story and Continue name their choices first (#342, #343)
+  s.note = place.kind === "story" ? "Pick where the story starts and ends, how many scenes and how long: Generate takes writes them."
+    : place.kind === "continue" ? `Pick ${scenes.length ? "the scene to continue after, " : ""}how many new scenes and how long: Generate takes writes them.`
+      : "Steer them and pick what goes along, if you like: Generate takes asks the language model.";
   draw();
-  if (!waits) ask();
 }
