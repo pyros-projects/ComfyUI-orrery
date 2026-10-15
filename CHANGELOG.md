@@ -228,6 +228,9 @@ checks) are left out.
 
 ### Fixed
 
+- An annotation at a line's end wraps with its line like text instead of being cut off at the editor's edge (#416).
+  The textarea holds the annotation's characters too, so both layers wrap alike; the template stays as typed, the
+  caret steps over an annotation, a copy leaves it out, and the editor has an Undo of its own.
 - A screenplay line that names a CAST member past its start (`… portrait of @ELARA wearing __couture_adjective__`)
   shows what its libraries rolled again (#428): the editor found the line only when `@NAME` began it.
 - A scene's divider acts on its own scene (#414): a click on a `SCENE` line, its words or its divider, makes that
