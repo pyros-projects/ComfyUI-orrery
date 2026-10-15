@@ -137,7 +137,7 @@ function pageHTML(app, page) {
       + `<p class="muted flush">In a reel's preview (click into it): ← → the scene before or after, Shift+← → the take before or after in the scene. In its frame picker: ← → a frame back or on, M marks the frame.</p>`;
   }
   if (page === "settings") {
-    return `<p class="muted flush">The gear opens them, the gear again brings the tab back: Home, Language model, Writers, Editor (with where the annotations go: at the line ends, with the caret's line's in full in a bar under the editor, on hover, or none), Clips (live preview, sample surfing), Log and Reset (ratings, history, gallery, presets, libraries or everything, each asked first). A setting is saved the moment it changes; the home folder, an API endpoint (checked first) and a writer's text have buttons of their own.</p>`;
+    return `<p class="muted flush">The gear opens them, the gear again brings the tab back: Home, Language model, Writers, Editor (with where the annotations go: at the line ends, on hover, or none), Clips (live preview, sample surfing), Log and Reset (ratings, history, gallery, presets, libraries or everything, each asked first). A setting is saved the moment it changes; the home folder, an API endpoint (checked first) and a writer's text have buttons of their own.</p>`;
   }
   const [, rows] = REF.find(([h]) => slug(h) === page) || REF[0];
   return `<div class="ref">${rows.map(([code, what, ex]) => `<div class="refrow"><pre class="codebox">${highlight(code, known)}</pre>`

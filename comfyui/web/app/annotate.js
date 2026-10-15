@@ -63,17 +63,6 @@ export function shownHints(show, hints) {
   return new Map([...hints].map(([i, h]) => [i, { ...h, hover: true, note: h.note ?? h.text }]));
 }
 
-// The hints each highlight drew (#416), for the bar under the editor: pre → {hints, offset}, the offset a cell's
-// first line in the template.
-export const drawnHints = new WeakMap();
-
-// What the bar under the editor shows (#416): the whole hint of the line the caret is on, which the line's end cuts
-// off at the editor's edge when the line leaves it too little room; null when that line has none to draw.
-export function caretHint(hints, text, caret) {
-  const line = text.slice(0, caret).split("\n").length - 1, h = hints?.get(line);
-  return h && !h.hover ? { ...h, line } : null;
-}
-
 // image 6–9, images 2, 5: as the server writes a member's slots (webapi._slots).
 export function slotsText(numbers) {
   const n = [...new Set(numbers)].sort((a, b) => a - b);
