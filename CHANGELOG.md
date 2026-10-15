@@ -225,6 +225,18 @@ checks) are left out.
 
 ### Fixed
 
+- A scene's divider acts on its own scene (#414): a click on a `SCENE` line, its words or its divider, makes that
+  scene's clip *Next clip*, and its transport starts there: ▶ rolls this scene, ⏮ ⏭ go to the scene before or after
+  this one, 🔒 holds this scene's clip (from another scene's divider the hold moves there). A scene that never plays at
+  the seed has no clip, so its ▶ ⏮ ⏭ 🔒 are off.
+- A knob turned in the sidebar reaches the run (#418): the node kept only the bindings' dials, so since the knobs came
+  (#226) every run loaded its LoRAs, RefMods, pictures and members at the strengths as written. The writers read the
+  knobs too.
+- A clip whose clip before is not in the film starts afresh (#415), as clip 1 and a test scene do, instead of
+  failing in Orrery Continue: no pinned frames, no opening sentence from the `END ON:` before it, no context in its
+  length, nothing sent from clips that were never made. The film keeps it at its place and cuts to it; the clips
+  after it continue it, and + take makes any clip of a scene. A scene's `AFTER:` reaches its clip though the clips
+  between were never made (it asked for all of them, and named the wrong one).
 - The anchors are back (#371), under a scene's takes, in a strip like theirs: what its `REMEMBER:` lines hand on to the
   clips after it, the frames of the circled take or, with Orrery Refs' `keep_sent` on, the stored anchor it holds; a
   head says which images and whether `keep_sent` is on, and a grip sizes it. They went with the clips column (bac51f4).

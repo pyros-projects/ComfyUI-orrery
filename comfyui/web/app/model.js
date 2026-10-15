@@ -415,6 +415,19 @@ export function sceneTarget(c, segment) {
   return c.segs ? c.segs[0] ?? null : c.first;
 }
 
+// A scene's transport in its divider (#414): its clip (`to`, as + take renders it; null when the scene never plays),
+// whether that is the next clip already (`now`), and the first clips of the scenes before and after it.
+export function sceneTransport(chunks, c, segment) {
+  const to = sceneTarget(c, segment);
+  return { to, now: plays(c, segment), prev: to === null ? null : sceneStep(chunks, to, -1), next: to === null ? null : sceneStep(chunks, to, 1) };
+}
+
+// The scene whose SCENE line holds the caret at `offset` of `text` (#414), or -1: a click there makes it the next.
+export function sceneAtCaret(chunks, text, offset) {
+  const line = text.slice(0, offset).split("\n").length - 1;
+  return (chunks || []).findIndex((c) => c.line === line);
+}
+
 // 1, 3–4, 7: a scene's clips in short, counted from 1 (segments from 0).
 function runs(segs) {
   const parts = [];

@@ -313,9 +313,11 @@ def _passages(result, target: str) -> list[tuple[str, str, object]]:
 
 
 def _dials(template: str, params) -> dict[str, str]:
-    """The dials (JSON or a dict) of the template's own bindings."""
+    """The dials (JSON or a dict) of the template's own bindings, and its knobs turned in the sidebar (#226: a key
+    `~scope|as written`, which override() puts in; #418)."""
     known = {name for name, _ in bindings(template)}
-    return {k: v for k, v in dial_values(params if isinstance(params, str) else json.dumps(params or {})).items() if k in known}
+    return {k: v for k, v in dial_values(params if isinstance(params, str) else json.dumps(params or {})).items()
+            if k in known or (k.startswith("~") and "|" in k)}
 
 
 def dialed(h, template: str, params) -> str:
@@ -472,7 +474,8 @@ def run_prompt(template: str, seed: int, target: str, home: str = "",
         else:
             result = compile_scene(source, seed, h.libraries(), h.weights(), target=target, segment=segment,
                                    packed=packed, held=anchors.stored(h) if keep else frozenset(), cell=cell,
-                                   standing=standing, past=_past(chain, segment))
+                                   standing=standing, past=_past(chain, segment),
+                                   film=_held(chain, segment) if continued else None)
             lint = [{"severity": i.severity, "message": i.message} for i in result.lint]
             needed = len(result.refs) if packed else max(image_slots(result.scene), default=0)
             if wired is not None and wired < needed:
@@ -663,6 +666,21 @@ def _previous(latent_path: str, segment: int):
         return None
     path = previous_clip(Path(folder_paths.get_output_directory()), latent_path or DEFAULT_CHAIN, segment)
     return load(path) if path else None
+
+
+def _held(latent_path: str, segment: int) -> frozenset[int] | None:
+    """The segments Orrery Film's film holds (#415): a clip whose clip before it lacks starts afresh. None for clip 1
+    and outside ComfyUI, where the reel runs as written."""
+    if segment <= 0:
+        return None
+    from orrery import film
+
+    try:
+        import folder_paths  # ComfyUI
+
+        return film.held(Path(folder_paths.get_output_directory()), latent_path or DEFAULT_CHAIN)
+    except Exception:  # noqa: BLE001 - no store: as written
+        return None
 
 
 def _past(latent_path: str, segment: int) -> dict[int, dict]:
