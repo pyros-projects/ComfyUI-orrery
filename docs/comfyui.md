@@ -127,11 +127,16 @@ Nodes under **orrery**:
     📊 explains them: where and how often the scene plays on the walk at the
     node's seed, drawn clip by clip, how long, what plays before and after it
     (and its lines that steer), what it rolls, and the clips it made.
-    Beside 📊 every divider carries the reel's **transport** (#341), the footer's
-    controls where you are, however tall the node: **⏮ ⏭** move *Next clip* to
-    the first clip of the scene before or after, **▶** is Roll, **+1 / +2 / +4**
-    the clips a Roll plays (a click cycles them) and **🔒** holds the clip; they act
-    on the reel, whichever divider they are clicked in. **⧉** duplicates the scene,
+    Beside 📊 every divider carries the **transport** (#341), the footer's
+    controls where you are, however tall the node, acting on its own scene
+    (#414): a click on a `SCENE` line, its words or its divider, makes that
+    scene's clip *Next clip* (the one it plays next, else its first), and every
+    button in the divider does so before it acts. **▶** rolls this scene,
+    **⏮ ⏭** move *Next clip* to the first clip of the scene before or after this
+    one, **+1 / +2 / +4** sets the clips a Roll plays (a click cycles them) and
+    **🔒** holds this scene's clip (in another scene's divider it moves the hold
+    there). A scene that never plays at the node's seed has no clip: its ▶ ⏮ ⏭ 🔒
+    are off. **⧉** duplicates the scene,
     the copy right after it, and **🗑** deletes it (#344): unsaved edits, with Undo.
     **Jump** beside *Next clip* puts the caret on the scene of the next clip.
     Under the prompt and the dials, the whole width, sits the **preview** (#305); the grip

@@ -225,6 +225,10 @@ checks) are left out.
 
 ### Fixed
 
+- A scene's divider acts on its own scene (#414): a click on a `SCENE` line, its words or its divider, makes that
+  scene's clip *Next clip*, and its transport starts there: ▶ rolls this scene, ⏮ ⏭ go to the scene before or after
+  this one, 🔒 holds this scene's clip (from another scene's divider the hold moves there). A scene that never plays at
+  the seed has no clip, so its ▶ ⏮ ⏭ 🔒 are off.
 - A knob turned in the sidebar reaches the run (#418): the node kept only the bindings' dials, so since the knobs came
   (#226) every run loaded its LoRAs, RefMods, pictures and members at the strengths as written. The writers read the
   knobs too.
