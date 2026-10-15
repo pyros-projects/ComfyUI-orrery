@@ -1147,6 +1147,25 @@ test("the preview shows the clip or take clicked, else the newest clip; the film
   assert.equal(reelShown({ state: {}, data: {} }), null);
 });
 
+test("the preview steps through the scenes, and through a scene's takes across its clips (#430)", async () => {
+  const { stageSteps, stageStep } = await import("../../comfyui/web/app/stage.js");
+  const chunks = [{ first: 0, last: 1 }, { first: 2, last: 2 }, { first: 3, last: 3 }];  // scene 1 plays clips 1 and 2
+  const takes = { 3: [{ folder: "3a" }, { folder: "3b", active: true }, { folder: "3c" }], 0: [{ folder: "0a" }, { folder: "0b", active: true }],
+    1: [{ folder: "1a", active: true }], 9: [{ folder: "9a", active: true }] };  // scene 2 has nothing made; no scene plays clip 10
+  const steps = stageSteps(chunks, takes), go = (seg, folder, by, dir) => stageStep(steps, { seg, folder }, by, dir)?.folder ?? null;
+  assert.deepEqual(steps.map((x) => x.folder), ["0a", "0b", "1a", "3a", "3b", "3c", "9a"]);
+  assert.equal(go(0, "0b", "take", 1), "1a");  // on to the scene's next clip
+  assert.equal(go(1, "1a", "take", 1), null);  // the scene's last take: the next scene is a scene step
+  assert.equal(go(0, "0a", "take", -1), null);
+  assert.equal(go(0, "0a", "scene", 1), "3b");  // past the scene with nothing made, to the circled take of its first clip
+  assert.equal(go(3, "3c", "scene", -1), "0b");
+  assert.equal(go(3, "3a", "scene", 1), "9a");  // a clip no scene plays comes after them all
+  assert.equal(go(9, "9a", "scene", 1), null);
+  assert.equal(go(1, undefined, "take", -1), "0b");  // a clip shown without a take: its first
+  assert.equal(go(5, undefined, "scene", 1), null);  // nothing made there
+  assert.deepEqual(stageSteps(null, undefined), []);
+});
+
 test("frames picked in the preview become a REMEMBER: line at the end of their scene (#223)", async () => {
   const { rememberLine, withRemember } = await import("../../comfyui/web/app/stage.js");
   assert.equal(rememberLine([50, 12, 50], " @GIRL "), "REMEMBER: frames 12, 50 as @GIRL");

@@ -28,11 +28,43 @@ export function reelShown(app) {
   return { seg, clip, take, takes, film: !take || take.active };
 }
 
+// The takes the preview steps through (#430), in its order: the scenes as the template has them, a scene's clips in
+// order, a clip's takes as saved; a clip no scene plays at this seed (the template changed) after them all.
+// [{chunk, seg, folder, active}]
+export function stageSteps(chunks, takes) {
+  const scene = (seg) => { const i = (chunks || []).findIndex((c) => plays(c, seg)); return i < 0 ? Infinity : i; };
+  return Object.keys(takes || {}).map(Number).map((seg) => ({ seg, chunk: scene(seg) }))
+    .sort((a, b) => a.chunk - b.chunk || a.seg - b.seg)
+    .flatMap(({ seg, chunk }) => takes[seg].map((t) => ({ chunk, seg, folder: t.folder, active: !!t.active })));
+}
+
+// Where a step from what the preview shows (`at`: {seg, folder}) lands (#430): by "take", the take before or after
+// in its scene, across the scene's clips; by "scene", the scene before or after with something made, its first
+// clip's circled take. Null at either end.
+export function stageStep(steps, at, by, dir) {
+  const i = steps.findIndex((x) => x.seg === at.seg && (!at.folder || x.folder === at.folder));
+  if (i < 0) return null;
+  if (by === "take") return steps[i + dir]?.chunk === steps[i].chunk ? steps[i + dir] : null;
+  const scenes = [...new Set(steps.map((x) => x.chunk))], to = scenes[scenes.indexOf(steps[i].chunk) + dir];
+  if (to === undefined) return null;
+  const of = steps.filter((x) => x.chunk === to), first = of.filter((x) => x.seg === of[0].seg);
+  return first.find((x) => x.active) || first[first.length - 1];
+}
+
 // Show a clip or a take in the preview; the picker closes.
 export function showInStage(app, sel) {
   app.state.stage = sel;
   app.state.picker = null;
   paintStage(app, true);
+}
+
+// A step in the preview (#430) shows the take it lands on, as a click on it does; the preview keeps the focus, so
+// the arrow keys go on stepping.
+function stepStage(app, by, dir) {
+  const r = reelShown(app), to = r && stageStep(stageSteps(app.chunks(), app.data.chain?.takes), { seg: r.seg, folder: r.take?.folder }, by, dir);
+  if (!to) return;
+  showInStage(app, { seg: to.seg, folder: to.folder });
+  box(app)?.focus({ preventScroll: true });
 }
 
 const sigOf = (app) => JSON.stringify([app.chunks()?.length ?? 0, app.state.stage, app.state.picker,
@@ -72,9 +104,18 @@ function reelHTML(app) {
   if (!r) return '<div class="st-media"><div class="st-empty muted">The clips come in under their scenes; a click on one, or on one of its takes, shows it here.</div></div>';
   const path = app.bridge.chain(), i = r.take ? r.takes.indexOf(r.take) + 1 : 0;
   const src = r.take && r.takes.length > 1 ? app.api.takeVideoURL(path, r.take.folder) : app.api.chainVideoURL(r.seg, path, r.clip?.version);
-  const picker = app.state.picker;
-  const head = `<div class="st-head"><b>Clip ${r.seg + 1}</b>${i && r.takes.length > 1 ? `<span class="muted">take ${i} of ${r.takes.length}</span>` : ""}`
-    + `${r.take ? `<span class="muted">seed ${r.take.seed ?? "?"}${r.take.take ? ` + ${r.take.take}` : ""}</span>` : ""}<span class="grow"></span>`
+  const picker = app.state.picker, steps = stageSteps(app.chunks(), app.data.chain?.takes), at = { seg: r.seg, folder: r.take?.folder };
+  const step = (by, dir, inner) => {  // #430
+    const to = stageStep(steps, at, by, dir), where = dir < 0 ? "before" : "after", key = `${by === "take" ? "Shift+" : ""}${dir < 0 ? "←" : "→"}`;
+    const n = to && (app.data.chain.takes[to.seg] || []).findIndex((t) => t.folder === to.folder) + 1;
+    const title = !to ? (by === "take" ? `No take ${where} this one in its scene` : `No scene ${where} this one with a clip made`)
+      : by === "take" ? `The take ${where} (${key}): clip ${to.seg + 1}, take ${n}` : `The scene ${where} (${key}): clip ${to.seg + 1}, its circled take`;
+    return `<button type="button" class="btn slim ghost st-step" data-ststep="${by}" data-dir="${dir}" title="${title}" aria-label="${title}" ${to ? "" : "disabled"}>${inner}</button>`;
+  };
+  const head = `<div class="st-head"><span class="st-steps">${step("scene", -1, icon("skip", "flip"))}${step("take", -1, "‹")}</span>`
+    + `<b>Clip ${r.seg + 1}</b>${i && r.takes.length > 1 ? `<span class="muted">take ${i} of ${r.takes.length}</span>` : ""}`
+    + `${r.take ? `<span class="muted">seed ${r.take.seed ?? "?"}${r.take.take ? ` + ${r.take.take}` : ""}</span>` : ""}`
+    + `<span class="st-steps">${step("take", 1, "›")}${step("scene", 1, icon("skip"))}</span><span class="grow"></span>`
     + (r.film ? `<span class="st-chosen">${icon("check")}circled</span>`
       : `<button type="button" class="btn slim" data-stact="film" title="Circle this take: it goes in the film, and REMEMBER: and the next clip use it">${icon("check")}Circle this take</button>`)
     + `<button type="button" class="btn slim ghost" data-stact="picker" aria-pressed="${!!picker}" ${r.film ? "" : "disabled"} title="${r.film
@@ -149,11 +190,20 @@ export function wireStage(app, { edited }) {
   host.addEventListener("seeked", tick, true);
   host.addEventListener("input", (e) => { if (e.target.classList.contains("st-as") && app.state.picker) app.state.picker.as = e.target.value; });
   host.addEventListener("keydown", (e) => {
-    if (!app.state.picker || e.target.tagName === "INPUT") return;
-    const act = { ArrowLeft: "back", ArrowRight: "next", m: "mark", M: "mark" }[e.key];
-    if (act) { e.preventDefault(); host.querySelector(`[data-stact="${act}"]`)?.click(); }
+    if (e.target.tagName === "INPUT" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (app.state.picker) {  // the frame picker keeps the arrows for frames
+      const act = { ArrowLeft: "back", ArrowRight: "next", m: "mark", M: "mark" }[e.key];
+      if (act) { e.preventDefault(); host.querySelector(`[data-stact="${act}"]`)?.click(); }
+      return;
+    }
+    const dir = { ArrowLeft: -1, ArrowRight: 1 }[e.key];  // #430: ← → scenes, Shift+← → takes, before the video seeks
+    if (!dir || !app.chunks()) return;
+    e.preventDefault();
+    stepStage(app, e.shiftKey ? "take" : "scene", dir);
   });
   host.addEventListener("click", async (e) => {
+    const steps = e.target.closest("[data-ststep]");
+    if (steps) return stepStage(app, steps.dataset.ststep, Number(steps.dataset.dir));
     const un = e.target.closest("[data-stunmark]");
     if (un) { app.state.picker.marks = app.state.picker.marks.filter((f) => f !== Number(un.dataset.stunmark)); return paintStage(app, true); }
     const act = e.target.closest("[data-stact]")?.dataset.stact, video = host.querySelector(".st-video");
