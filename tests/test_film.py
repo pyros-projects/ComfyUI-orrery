@@ -378,6 +378,17 @@ def test_a_clip_after_a_gap_starts_afresh_and_the_film_cuts_to_it(tmp_path):
     assert film.tree(tmp_path, "h3_context")["path"] == [a.name, mid.name]
 
 
+def test_an_after_reaches_its_clip_across_clips_never_made(tmp_path):
+    """#415: a scene's AFTER: continues its clip though the clips between were never made (it asked for all of them)."""
+    a = take(tmp_path, 0, fill=0.3)
+    take(tmp_path, 1)
+    assert (film.previous_tail(tmp_path, "h3_context", 6, 0).video == 0.3).all()  # clip 7 says AFTER: 1
+    on = take(tmp_path, 6, continues=0)
+    meta = json.loads((on / "meta.json").read_text())
+    assert (meta["continues"], meta["after"]) == (0, a.name)
+    assert film.held(tmp_path, "h3_context") == frozenset({0, 1, 6})
+
+
 def test_a_take_names_the_scene_and_the_template_it_was_made_with(tmp_path):
     """#242: the tree and the takes under a clip tell a take made with another version of its scene."""
     take(tmp_path, 0, meta={"template": "0123456789abcdef", "chunk": 0})

@@ -228,7 +228,8 @@ checks) are left out.
 - A clip whose clip before is not in the film starts afresh (#415), as clip 1 and a test scene do, instead of
   failing in Orrery Continue: no pinned frames, no opening sentence from the `END ON:` before it, no context in its
   length, nothing sent from clips that were never made. The film keeps it at its place and cuts to it; the clips
-  after it continue it, and + take makes any clip of a scene.
+  after it continue it, and + take makes any clip of a scene. A scene's `AFTER:` reaches its clip though the clips
+  between were never made (it asked for all of them, and named the wrong one).
 - No seams in Orrery Film's film (#361, #362, under #359): a clip's last frames and the end of its sound are played as
   the next clip's decode has them, as one decode of the whole film would, so the brightness jumps and the clicks where
   clips met are gone, and the sound's level eases across the seam (up to 1.5 dB, as H3 Continuum's seam guard does).
