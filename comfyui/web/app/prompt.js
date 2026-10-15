@@ -7,7 +7,7 @@ import { annotationLines, mergeHints, shownHints } from "./annotate.js";
 import { wireHover } from "./hover.js";
 import { hintsFor } from "./remember.js";
 import { icon } from "./icons.js";
-import { applyDials, chunkInfo, copyScene, dials, dropScene, hasGoto, knobKey, knobsOf, withFields, plays, sceneAtCaret, sceneStep, sceneTransport, folderColor, pickerGroups, sceneTarget, shape, stats, stripComments, PLAN_HINT, matches, templateHash } from "./model.js";
+import { applyDials, chunkInfo, copyScene, dials, dropScene, hasGoto, knobKey, knobsOf, mixKnobs, withFields, plays, sceneAtCaret, sceneStep, sceneTransport, folderColor, pickerGroups, sceneTarget, shape, stats, stripComments, PLAN_HINT, matches, templateHash } from "./model.js";
 import { drag, thumbHTML } from "./parts.js";
 import { openSave } from "./save.js";
 import { openSceneStats } from "./scenestats.js";
@@ -634,8 +634,7 @@ function renderDials(app) {
   if (!box) return;
   if (app.dm) shutMenu(app);
   const list = dials(app.text), values = app.bridge.getParams(), knobs = templateKnobs(app), keys = new Set(knobs.map(knobKey));
-  const kept = Object.fromEntries(Object.entries(values).filter(([k]) => list.some((d) => d.name === k) || keys.has(k)));
-  if (Object.keys(kept).length !== Object.keys(values).length) app.bridge.setParams(kept);
+  const { params: kept, mix } = remix(app, Object.fromEntries(Object.entries(values).filter(([k]) => list.some((d) => d.name === k) || keys.has(k))));
   app.state.dialKey = dialKey(app.text);
   const chosen = app.bridge.props.orrery_side, set = Object.keys(kept).length;
   const folded = chosen === "folded" || (chosen !== "open" && (app.view.querySelector(".edrow")?.clientWidth || ROOMY) < ROOMY);
@@ -655,7 +654,7 @@ function renderDials(app) {
         + `<span class="droll" data-roll="${esc(d.name)}"></span>`
         + `<button type="button" class="mini" data-dreset="${esc(d.name)}" aria-label="Back to the default roll">${icon("x")}</button></div>`
         + `<input class="dv" id="${id}" data-dial="${esc(d.name)}" value="${esc(v)}" placeholder="${esc(d.expr)}" spellcheck="false" autocomplete="off" role="combobox" aria-expanded="false"></div>`;
-    }).join("")}${knobs.length ? knobsHTML(app, knobs, kept) : ""}</div>`;
+    }).join("")}${knobs.length ? knobsHTML(app, knobs, kept, mix) : ""}</div>`;
   paintRolls(app);
 }
 
@@ -678,28 +677,46 @@ function templateKnobs(app) {
     refmods: done.refmods || [], cast: castNames(app.text) });
 }
 
+// Mute and solo (#419): the node keeps the mix beside its params, and the params get what plays (model.mixKnobs).
+const mixOf = (app) => app.bridge.props.orrery_mix || {};
+
+// The params and the mix made to agree. Params set from elsewhere (a replay, Clear, a preset) end the mix that had
+// put a knob at 0, since they no longer hold that 0.
+function remix(app, params, mix = mixOf(app)) {
+  let got = mixKnobs(templateKnobs(app), params, mix);
+  if (Object.keys(mixOf(app).shown || {}).some((k) => k in got.mix.shown && params[k] !== got.params[k])) {
+    got = { params, mix: { mute: [], solo: [], shown: {} } };
+  }
+  if (got.mix.mute.length || got.mix.solo.length) app.bridge.props.orrery_mix = got.mix;
+  else delete app.bridge.props.orrery_mix;
+  if (JSON.stringify(got.params) !== JSON.stringify(app.bridge.getParams())) app.bridge.setParams(got.params);
+  return got;
+}
+
 // A knob's (strength, start, end) and its words (a member's `refmods`), as written or as the node turns it.
 function knobParts(fields) {
   const numbers = fields.filter((f) => !/^[A-Za-z]/.test(f)), words = fields.filter((f) => /^[A-Za-z]/.test(f));
   return { numbers: [0, 1, 2].map((i) => numbers[i] ?? ""), words };
 }
 
-function knobsHTML(app, knobs, values) {
+function knobsHTML(app, knobs, values, mix) {
   const chunks = app.chunks() || [], segment = Number(app.bridge.getSegment());
   const next = chunks.findIndex((c) => plays(c, segment)), head = knobs.filter((k) => k.scope === -1);
   const groups = [...new Set(knobs.map((k) => k.scope))];
   const open = app.state.knobOpen ??= new Set([-1, next]);
-  return `<div class="ksec"><span class="label">Knobs</span><span class="muted">${knobs.length}</span></div>` + groups.map((scope) => {
+  const zero = Object.keys(mix.shown).length, said = [mix.solo.length ? `<b>${mix.solo.length}</b> soloed` : "", zero ? `<b>${zero}</b> muted` : ""].filter(Boolean);
+  return `<div class="ksec"><span class="label">Knobs</span><span class="muted">${[knobs.length, ...said].join(" · ")}</span></div>` + groups.map((scope) => {
     const ks = knobs.filter((k) => k.scope === scope), shut = !open.has(scope);
     return `<div class="kgroup${shut ? " shut" : ""}"><button type="button" class="khead" data-kgroup="${scope}">${icon("chev")}`
       + `<span>${scope < 0 ? "All clips" : `SCENE ${esc(ks[0].scene || String(scope + 1))}`}</span>`
       + `${scope >= 0 && scope === next ? '<span class="knext">▶ next</span>' : ""}<span class="muted">${ks.length}</span></button>`
-      + (shut ? "" : ks.map((k) => knobHTML(app, k, values, head)).join("")) + "</div>";
+      + (shut ? "" : ks.map((k) => knobHTML(app, k, values, head, mix)).join("")) + "</div>";
   }).join("");
 }
 
-function knobHTML(app, k, values, head) {
-  const key = knobKey(k), now = values[key], own = knobParts(k.fields);
+function knobHTML(app, k, values, head, mix) {
+  const key = knobKey(k), zero = key in mix.shown, now = zero ? mix.shown[key] : values[key], own = knobParts(k.fields);
+  const name = k.name.toLowerCase();
   const turned = now ? knobParts(specOf(now).split(",").map((f) => f.trim())) : null;
   const over = k.scope >= 0 && head.find((h) => h.kind === k.kind && h.name.toLowerCase() === k.name.toLowerCase());
   const shown = turned || own;
@@ -713,8 +730,10 @@ function knobHTML(app, k, values, head) {
     return `<div class="kchips" title="The sweep's values: a click takes one out or back in">${all.map((v) => `<button type="button" class="kchip${on.has(v) ? " on" : ""}"`
       + ` data-knob="${esc(key)}" data-chip="${i}" data-value="${esc(v)}">${esc(v)}</button>`).join("")}</div>`;
   }).join("");
-  return `<div class="dial knob${now ? " on" : ""}" data-row="${esc(key)}" title="${esc(k.text)}"><div class="dtop"><span class="kk ${k.kind}">${KNOB_KIND[k.kind]}</span>`
+  return `<div class="dial knob${now ? " on" : ""}${zero ? " zero" : ""}" data-row="${esc(key)}" title="${esc(k.text)}${zero ? " · plays at 0" : ""}"><div class="dtop"><span class="kk ${k.kind}">${KNOB_KIND[k.kind]}</span>`
     + `<span class="dn">${esc(k.name)}</span><span class="droll">${over ? `overrides ${esc(over.fields.filter(Boolean).join(", "))} here` : ""}</span>`
+    + (k.kind === "lora" ? `<button type="button" class="kms m" data-kmute="${esc(key)}" aria-pressed="${mix.mute.includes(key)}" title="Mute: the run leaves this LoRA out (at 0), its strength stays">M</button>`
+      + `<button type="button" class="kms s" data-ksolo="${esc(name)}" aria-pressed="${mix.solo.includes(name)}" title="Solo: only the soloed LoRAs play, in every clip they are in">S</button>` : "")
     + `<button type="button" class="mini" data-kreset="${esc(key)}" aria-label="Back to the template's">${icon("x")}</button></div>`
     + `<div class="kfields">${field(0, "strength")}${field(1, "start")}${field(2, "end")}</div>${chips}</div>`;
 }
@@ -793,10 +812,10 @@ function wireDials(app) {
     if (head) head.innerHTML = sideHead(box.querySelectorAll(".dial").length, Object.keys(values).length);
     refreshBar(app);
   };
-  const turn = (key, text) => {  // a knob (#226): its key among the params, its row marked
-    const values = app.bridge.getParams();
-    if (text) values[key] = text; else delete values[key];
-    app.bridge.setParams(values);
+  const turn = (key, text) => {  // a knob (#226): its key among the params, its row marked; one at 0 keeps it as shown (#419)
+    const values = app.bridge.getParams(), mix = mixOf(app), zero = key in (mix.shown || {});
+    if (!zero) { if (text) values[key] = text; else delete values[key]; }
+    remix(app, values, zero ? { ...mix, shown: { ...mix.shown, [key]: text || "" } } : mix);
     box.querySelector(`[data-row="${CSS.escape(key)}"]`)?.classList.toggle("on", !!text);
     refreshBar(app);
   };
@@ -838,6 +857,7 @@ function wireDials(app) {
     }
     if (e.target.closest("[data-dclear]")) {
       app.bridge.setParams({});
+      delete app.bridge.props.orrery_mix;
       renderDials(app);
       return refreshBar(app);
     }
@@ -846,6 +866,15 @@ function wireDials(app) {
       const scope = Number(group.dataset.kgroup), open = app.state.knobOpen;
       if (open.has(scope)) open.delete(scope); else open.add(scope);
       return renderDials(app);
+    }
+    const ms = e.target.closest("[data-kmute], [data-ksolo]");
+    if (ms) {  // mute or solo (#419): on, or off again
+      const mix = mixOf(app), list = ms.dataset.kmute ? "mute" : "solo", id = ms.dataset.kmute || ms.dataset.ksolo;
+      const now = new Set(mix[list] || []);
+      if (now.has(id)) now.delete(id); else now.add(id);
+      remix(app, app.bridge.getParams(), { ...mix, [list]: [...now] });
+      renderDials(app);
+      return refreshBar(app);
     }
     const chip = e.target.closest("[data-chip]");
     if (chip) {

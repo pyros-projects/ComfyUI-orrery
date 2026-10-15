@@ -112,7 +112,11 @@ Nodes under **orrery**:
     with its strength, start and end in number fields whose little buttons
     step 0.05 (the start and the end a share of sampling, 0 and 1 unless
     written), and a sweep's values as chips to take out or back in. A knob turned there is the node's, as a
-    dial is: the template stays as written, and saving bakes it in. **Test** jumps to the Test tab and rolls. **Write** has
+    dial is: the template stays as written, and saving bakes it in. A LoRA's knob has **M** and **S**,
+    as on a mixer (#419): **M** mutes it (the run leaves it out, at 0) and **S** solos it (only the
+    soloed LoRAs play, a solo holding in every clip its LoRA is in). The knob keeps the strength it
+    shows, faded while it plays at 0, and a click again gives it back; the head counts what is muted
+    and soloed, and saving bakes in what plays. **Test** jumps to the Test tab and rolls. **Write** has
     the language model write the reel's next scene, the shot between two
     frames or a prompt from a picture, in the 🎲 takes sheet every ask uses
     (#333): N takes, steered, with what is sent along, one put in or several as

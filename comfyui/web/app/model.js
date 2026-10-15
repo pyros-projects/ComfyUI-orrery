@@ -614,6 +614,30 @@ export function applyKnobs(text, values) {
   }).join("\n");
 }
 
+// Mute and solo for the LoRA knobs (#419), as on a mixer: a muted LoRA plays at 0 while its knob keeps the strength
+// it shows; while any LoRA is soloed only the soloed play, a solo holding for its LoRA in every scope (the head's
+// knob and each scene's). `mix`: {mute: knob keys, solo: LoRA names in lower case, shown: what each knob that plays
+// at 0 shows, "" the template's}. Returns the params and the mix as they must be: a knob that plays at 0 is in the
+// params at 0, what it shows kept in `shown`; one that plays again gets it back. Knobs gone from the text drop out;
+// one not told a LoRA yet (a SET: line's, before your LoRA files are known) keeps what the mix holds for it.
+export function mixKnobs(knobs, params, mix = {}) {
+  const keys = new Set(knobs.map(knobKey)), names = new Set(knobs.map((k) => k.name.toLowerCase()));
+  const mute = [...new Set(mix.mute || [])].filter((k) => keys.has(k)), solo = [...new Set(mix.solo || [])].filter((n) => names.has(n));
+  const was = mix.shown || {}, shown = {}, out = { ...params };
+  for (const k of knobs) {
+    const key = knobKey(k), text = key in was ? was[key] : out[key] || "";
+    if (k.kind !== "lora") {
+      if (key in was) shown[key] = text;
+      continue;
+    }
+    const zero = mute.includes(key) || (solo.length > 0 && !solo.includes(k.name.toLowerCase()));
+    const plays = zero ? withFields(k, ["0"]) : text;
+    if (zero) shown[key] = text;
+    if (plays && plays !== k.text) out[key] = plays; else delete out[key];
+  }
+  return { params: out, mix: { mute, solo, shown } };
+}
+
 // The Libraries list: what the language model wrote and waits for review first, then folders, then
 // the rest. A folder is a real one (film/genre → film: genre) or, for flat names such as the
 // built-ins, a shared prefix (couture_form, couture_house → couture: form, house). Each item carries

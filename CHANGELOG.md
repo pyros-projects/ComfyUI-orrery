@@ -9,6 +9,8 @@ checks) are left out.
 
 ### Added
 
+- Mute and solo for the LoRA knobs (#419): **M** takes a LoRA out of the run and **S** plays only the soloed LoRAs, in
+  every clip they are in, as on a mixer. The knob keeps the strength it shows, so an A/B is one click each way.
 - The preview steps through a reel (#430): ⏮ ⏭ to the scene before or after (its circled take), ‹ › through the
   scene's takes over its clips, and with the preview focused ← → for scenes, Shift+← → for takes. The frame picker
   keeps ← → for frames.

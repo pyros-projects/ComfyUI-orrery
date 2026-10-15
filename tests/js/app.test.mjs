@@ -752,6 +752,40 @@ test("the template's knobs, where they hold, written anew and put back (#226)", 
   assert.match(turned, /SCENE the walk\nSET: turbo\(0\.5\), @JINX/);
 });
 
+test("mute and solo put a LoRA's knob at 0 and give its strength back (#419)", async () => {
+  const { knobsOf, knobKey, mixKnobs, applyKnobs } = await import("../../comfyui/web/app/model.js");
+  const text = "@h3\nLORA: <lora:turbo:0.8> <lora:style:0.5>\nSET: image_1(0.3)\nSCENE the walk\nSET: turbo(1)\nSHOT 5s: static\nx.\n";
+  const knobs = knobsOf(text, { loras: ["turbo.safetensors", "style.safetensors"] });
+  const [turbo, style, image, turbo2] = knobs.map(knobKey);
+  // a mute: its knob plays at 0, what it shows (turned to 0.6) kept; the dials and the other knobs untouched
+  let got = mixKnobs(knobs, { [turbo]: "<lora:turbo:0.6>", hero: "lynx", [image]: "image_1(0.2)" }, { mute: [turbo] });
+  assert.deepEqual(got.params, { [turbo]: "<lora:turbo:0>", hero: "lynx", [image]: "image_1(0.2)" });
+  assert.deepEqual(got.mix, { mute: [turbo], solo: [], shown: { [turbo]: "<lora:turbo:0.6>" } });
+  assert.match(applyKnobs(text, got.params), /LORA: <lora:turbo:0> <lora:style:0\.5>/);
+  // unmuted: the strength it showed is back
+  got = mixKnobs(knobs, got.params, { ...got.mix, mute: [] });
+  assert.deepEqual(got.params, { [turbo]: "<lora:turbo:0.6>", hero: "lynx", [image]: "image_1(0.2)" });
+  assert.deepEqual(got.mix.shown, {});
+  // a knob as written, muted: at 0; unmuted, out of the params again
+  got = mixKnobs(knobs, {}, { mute: [style] });
+  assert.deepEqual(got.params, { [style]: "<lora:style:0>" });
+  assert.deepEqual(mixKnobs(knobs, got.params, { ...got.mix, mute: [] }).params, {});
+  // a solo holds for its LoRA in every scope: turbo plays in the head and in the scene, style at 0; a picture is no LoRA
+  got = mixKnobs(knobs, { [turbo2]: "turbo(0.9)" }, { solo: ["turbo"] });
+  assert.deepEqual(got.params, { [turbo2]: "turbo(0.9)", [style]: "<lora:style:0>" });
+  // a knob that plays at 0, turned: what it shows changes, it still plays at 0
+  got = mixKnobs(knobs, got.params, { ...got.mix, shown: { ...got.mix.shown, [style]: "<lora:style:0.7>" } });
+  assert.equal(got.params[style], "<lora:style:0>");
+  got = mixKnobs(knobs, got.params, { ...got.mix, solo: [] });
+  assert.deepEqual(got.params, { [turbo2]: "turbo(0.9)", [style]: "<lora:style:0.7>" });
+  // a knob gone from the text drops out of the mix
+  assert.deepEqual(mixKnobs(knobs, {}, { mute: ["~0|gone(1)"], solo: ["gone"] }).mix, { mute: [], solo: [], shown: {} });
+  // the scene's SET: turbo before your LoRA files are known is no LoRA yet: what the mix holds for it stays
+  const early = knobsOf(text);
+  got = mixKnobs(early, { [turbo2]: "turbo(0)" }, { solo: ["style"], shown: { [turbo2]: "turbo(0.9)" } });
+  assert.deepEqual([got.params[turbo2], got.mix.shown[turbo2]], ["turbo(0)", "turbo(0.9)"]);
+});
+
 test("the take tree lays its takes out as a tidy tree, rows where they were made, and shows the way through a take (#241)", async () => {
   const { layoutTree, wayThrough } = await import("../../comfyui/web/app/tree.js");
   const t = (folder, segment, parent, created) => ({ folder, segment, parent, created });

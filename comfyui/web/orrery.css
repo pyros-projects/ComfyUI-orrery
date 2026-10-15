@@ -394,6 +394,12 @@
 .orrery-app .kchips { display: flex; flex-wrap: wrap; gap: 3px; }
 .orrery-app .kchip { padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--faint); font: 11px var(--mono); cursor: pointer; text-decoration: line-through; }
 .orrery-app .kchip.on { color: var(--ink); border-color: rgba(240,122,160,.55); background: rgba(240,122,160,.08); text-decoration: none; }
+/* a LoRA's mute and solo (#419), lit as on a mixer; a LoRA that plays at 0 fades, its strength still shown */
+.orrery-app .kms { flex: none; width: 18px; height: 18px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; color: var(--faint); font: 600 10px var(--ui); cursor: pointer; }
+.orrery-app .kms:hover { color: var(--ink); border-color: #4a4c63; }
+.orrery-app .kms.m[aria-pressed="true"] { color: #1b1c24; background: var(--rose); border-color: var(--rose); }
+.orrery-app .kms.s[aria-pressed="true"] { color: #1b1c24; background: var(--brass); border-color: var(--brass); }
+.orrery-app .knob.zero .kk, .orrery-app .knob.zero .dn, .orrery-app .knob.zero .kfields { opacity: .4; }
 .orrery-app .dial .mini { display: none; margin-left: auto; flex: none; }
 .orrery-app .dial.on .mini { display: inline-flex; }
 .orrery-app .dm { position: absolute; z-index: 30; max-width: min(460px, calc(100% - 8px)); max-height: 260px; overflow-y: auto; background: #1f2029; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5); padding: 3px 0; font: 12px/1.4 var(--mono); }
