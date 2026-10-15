@@ -5,7 +5,8 @@
 // at its end join two, and a CHUNK line typed or removed cuts the text again, the caret where it was. A
 // clip's shorter side is the settings' clip size, as far as the section is wide.
 import { castNames } from "../orrery-complete.js";
-import { highlight } from "./highlight.js";
+import { highlight, hintRooms } from "./highlight.js";
+import { bindRoom, setRooms, shownEnd, shownValue } from "./textroom.js";
 import { splitCells } from "./model.js";
 import { annotationLines, mergeHints, shownHints } from "./annotate.js";
 import { fillStrip, hintsFor, openPicker, rememberLines, stripHTML } from "./remember.js";
@@ -50,7 +51,7 @@ export function renderCells(app, at = null) {
   host.innerHTML = cells.map((c, i) => `<div class="cell" data-cell="${i}" data-chunk="${c.chunk}">`
     + `<pre class="hl" aria-hidden="true"></pre><textarea spellcheck="false" aria-label="${c.chunk < 0 ? "Before the first SCENE" : `SCENE ${c.chunk + 1}`}"></textarea></div>`
     + `<div class="chunkmedia${c.chunk < 0 ? " head" : ""}" data-chunk="${c.chunk}"><div class="cm-body"></div></div>`).join("");
-  areas(app).forEach((ta, i) => { ta.value = cells[i].text; ta.readOnly = !!app.state.sweepQueue; });
+  areas(app).forEach((ta, i) => { bindRoom(ta).value = cells[i].text; ta.readOnly = !!app.state.sweepQueue; });
   app.cellsSig = null;
   paintCells(app);
   if (at !== null) placeCaret(app, at);
@@ -83,6 +84,7 @@ export function paintCells(app) {
     if (painted.get(cell) === key) return;
     painted.set(cell, key);
     cell.querySelector("pre").innerHTML = `${highlight(c.text, known, { llm, chunks: local, segment, cast, hints, sceneActs: acts })}​`;
+    setRooms(cell.querySelector("textarea"), hintRooms(c.text, known, { llm, hints }));  // the textarea holds the hints too (#416)
   });
   paintStage(app);  // the preview, when what it shows changed (#305)
   const keep = !!app.bridge.keepSent?.(), stored = app.data.anchors || [];  // what keep_sent holds (#371)
@@ -133,7 +135,7 @@ export function caretPoint(ta) {
     "fontSize", "fontWeight", "lineHeight", "letterSpacing", "overflowWrap", "tabSize", "scrollbarGutter"]) mirror.style[k] = css[k];
   Object.assign(mirror.style, { position: "absolute", visibility: "hidden", top: "0", left: "-9999px", whiteSpace: "pre-wrap",
     overflowY: css.overflowY === "hidden" ? "hidden" : "scroll" });
-  mirror.textContent = ta.value.slice(0, ta.selectionEnd);
+  mirror.textContent = shownValue(ta).slice(0, shownEnd(ta));  // as the textarea holds it, hints and all (#416)
   const mark = document.createElement("span");
   mark.textContent = "​";
   mirror.appendChild(mark);

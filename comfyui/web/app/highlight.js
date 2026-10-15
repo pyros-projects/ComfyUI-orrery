@@ -1,6 +1,7 @@
 // Syntax colouring for orrery templates. Pure: returns HTML for a <pre> under the editor.
 
 import { castNames } from "../orrery-complete.js";
+import { hintParts, roomOf } from "./hintroom.js";
 import { icon } from "./icons.js";
 import { chunkShort } from "./model.js";
 
@@ -109,33 +110,42 @@ export function onHover(html, h) {
   return h.note ? html.replace(/<span class="(t-kw|t-var|t-param)/, (m, kind) => `<span data-roll="${esc(h.note)}" class="t-has ${kind}`) : html;
 }
 
-// `hints`: line index → { text, replaced } drawn after the line (REMEMBER: lines say where their frames go);
-// a hint takes no room, so the text wraps exactly as the textarea's. One with `hover` goes on the line's words.
+// A line's hint drawn after it, wrapping as text (#416): the 🎲 keys of the places a language model writes for (#173),
+// the hint's pictures and its text, its rolls each opening their library's takes (#273). The textarea holds the same
+// characters there (hintRooms), so both wrap alike.
+function hintHTML(parts, h, i) {
+  if (!parts.length) return "";
+  const inner = parts.map((p) => {
+    if (p.kind === "key") {
+      return `<span class="hkey">${p.text}<span class="llm-key" role="button" data-llm="${p.place.kind}" data-what="${esc(p.place.what)}" `
+        + `data-dirs="${esc(p.place.dirs || "")}" data-line="${i}" title="${esc(ASK[p.place.kind])}">${icon("dice")}</span></span>`;
+    }
+    if (p.kind === "pic") return `<span class="hpic" style="background-image:url(&quot;${esc(p.url)}&quot;)">${p.text}</span>`;
+    if (p.kind === "roll") return `<span class="lroll" role="button" data-lroll="${p.k}" data-line="${i}" title="${esc(ASK.entries)}">${esc(p.text)}</span>`;
+    return `<span class="h-${p.kind}">${esc(p.text)}</span>`;
+  }).join("");
+  const shown = h && !h.hover ? h : null;
+  return `<span class="hint${shown?.replaced ? " replaced" : ""}${shown?.kind ? ` ${shown.kind}` : ""}">${inner}</span>`;
+}
+
+// What the textarea holds after each line in place of its hint (#416): line index → text (hintroom.roomOf).
+export function hintRooms(src, known, { llm = false, hints = null } = {}) {
+  const out = new Map();
+  src.split("\n").forEach((l, i) => {
+    const room = roomOf(hintParts(hints?.get(i), { llm, keys: llm ? llmPlaces(l, known) : [] }));
+    if (room) out.set(i, room);
+  });
+  return out;
+}
+
+// `hints`: line index → { text, replaced } drawn after the line (REMEMBER: lines say where their frames go); the
+// textarea holds them too (hintRooms), so the text wraps exactly as the textarea's. One with `hover` goes on the
+// line's words.
 export function highlight(src, known, { llm = false, chunks = null, segment = null, cast = null, hints = null, sceneActs = null } = {}) {
   const at = new Map((chunks || []).map((c, i) => [c.line, { ...c, index: c.index ?? i }]));
   const members = memberPattern(cast ?? castNames(src));
-  const said = (i) => {  // a line's hint drawn after it: its class and what it says
-    const h = hints?.get(i);
-    if (!h || h.hover) return null;
-    const pics = (h.thumbs || []).map((u) => `<img class="hint-pic" src="${esc(u)}" alt="">`).join("");
-    // with a language model set, each library's roll opens that library's takes (#273): a span of their own beside
-    // the faded text, since its opacity would keep them under the textarea
-    const rolls = llm && h.rolls?.length ? `→ ${h.rolls.map(([, v]) => v).join(" · ")}` : "";
-    const head = rolls && h.text.endsWith(rolls) ? h.text.slice(0, -rolls.length).trimEnd() : null;
-    const inner = head === null ? `<span>${pics}${esc(h.text)}</span>`
-      : `${head || pics ? `<span>${pics}${esc(head)}</span>` : ""}<span class="lrolls">→ ${h.rolls.map(([k, v]) =>
-        `<span class="lroll" role="button" data-lroll="${k}" data-line="${i}" title="${esc(ASK.entries)}">${esc(v)}</span>`).join(" · ")}</span>`;
-    return { cls: `${h.replaced ? " replaced" : ""}${h.kind ? ` ${h.kind}` : ""}`, inner };
-  };
-  const hint = (i) => (said(i) ? `<span class="hint${said(i).cls}">${said(i).inner}</span>` : "");
   const words = (l, i) => (hints?.get(i)?.hover ? onHover(line(l, known, llm, members), hints.get(i)) : line(l, known, llm, members));
-  // with a language model set, a 🎲 at the end of a line with a place it writes for (#173), before the line's hint
-  const tail = (l, i) => {
-    const keys = llm ? llmPlaces(l, known).map((p) => `<span class="llm-key" role="button" data-llm="${p.kind}" data-what="${esc(p.what)}" `
-      + `data-dirs="${esc(p.dirs || "")}" data-line="${i}" title="${esc(ASK[p.kind])}">${icon("dice")}</span>`).join("") : "";
-    if (!keys) return hint(i);
-    return `<span class="hint${said(i)?.cls || ""} with-keys"><span class="llm-keys">${keys}</span>${said(i)?.inner || ""}</span>`;
-  };
+  const tail = (l, i) => hintHTML(hintParts(hints?.get(i), { llm, keys: llm ? llmPlaces(l, known) : [] }), hints?.get(i), i);
   return src.split("\n").map((l, i) => (at.has(i) ? chunkLine(words(l, i), at.get(i), segment, sceneActs ? sceneActs(at.get(i), at.get(i).index) : "")
     : words(l, i)) + tail(l, i)).join("\n");
 }

@@ -976,7 +976,48 @@ test("every library in a line says its roll, at the line's end, on hover or not 
   assert.match(html, /data-roll="at this seed: bob cut" class="t-has t-lib">__hair__/);
   assert.match(html, /data-roll="= fox" class="t-has t-var">\$a/);
   assert.match(onHover('<span class="t-kw">REMEMBER:</span> x', { note: "→ image 3" }), /data-roll="→ image 3" class="t-has t-kw"/);
-  assert.match(highlight(text, known, { hints: cell }), /class="hint note"><span>→ heron · arcade · bob cut/);
+  assert.match(highlight(text, known, { hints: cell }), /<span class="hint note"><span class="h-gap"> {2}<\/span><span class="h-text">→ heron · arcade · bob cut<\/span><\/span>/);
+});
+
+test("a hint wraps as text: the textarea holds what the highlight draws after each line, character for character (#416)", async () => {
+  const { highlight, hintRooms } = await import("../../comfyui/web/app/highlight.js");
+  const { layout } = await import("../../comfyui/web/app/hintroom.js");
+  const known = new Set(["animal"]);
+  const text = "@h3 t2va\nCAST\n@ELARA (image 1): a woman\nSHOT 5s: static\nA __animal__ with --a small object-- & <ELARA>.\nREMEMBER: frame 1 as image 2";
+  const hints = new Map([[2, { text: "image 1 · Elara", kind: "note", thumbs: ["/thumb?a=1&b=2"] }], [4, { text: "→ fox", rolls: [[0, "fox"]] }],
+    [5, { text: "→ image 2\n· clips 2+", replaced: true }]]);
+  for (const llm of [false, true]) {
+    const drawn = highlight(text, known, { llm, hints }).replace(/<[^>]*>/g, "")
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    assert.equal(drawn, layout(text, hintRooms(text, known, { llm, hints })).text);
+  }
+  const rooms = hintRooms(text, known, { llm: true, hints });
+  assert.deepEqual([...rooms.keys()], [2, 4, 5]);
+  assert.equal(rooms.get(5), "  → image 2 · clips 2+");  // one line: a hint never breaks the textarea's lines
+  assert.equal(hintRooms(text, known, { hints: new Map([[4, { text: "→ fox", hover: true }]]) }).size, 0);  // on hover: no room
+});
+
+test("the textarea with its hints maps to the template, and an edit of it is the template's edit (#416)", async () => {
+  const { clampCaret, hintParts, layout, reconcile, roomOf, toDisplay, toSource } = await import("../../comfyui/web/app/hintroom.js");
+  assert.deepEqual(hintParts(null), []);
+  assert.equal(roomOf(hintParts({ text: "→ fox · owl", rolls: [[0, "fox"], [1, "owl"]] }, { llm: true })), "  → fox · owl");
+  const source = "ab\ncd\nef", rooms = new Map([[0, "  →x"], [1, "  →y"]]);
+  const { text, spans } = layout(source, rooms);
+  assert.equal(text, "ab  →x\ncd  →y\nef");
+  assert.deepEqual([toSource(spans, 2), toSource(spans, 4), toSource(spans, 6), toSource(spans, 7), toSource(spans, 16)], [2, 2, 2, 3, 8]);
+  assert.deepEqual([toDisplay(spans, 2), toDisplay(spans, 3), toDisplay(spans, 5), toDisplay(spans, 8)], [2, 7, 9, 16]);
+  assert.deepEqual([clampCaret(spans, 4, false, text.length), clampCaret(spans, 4, true, text.length), clampCaret(spans, 2, true, text.length)], [2, 7, 2]);
+  const typed = reconcile(text, spans, source, "abX  →x\ncd  →y\nef");  // typed at the line's end, before its hint
+  assert.deepEqual([typed.source, typed.text, typed.caret, typed.spans[0].start], ["abX\ncd\nef", "abX  →x\ncd  →y\nef", 3, 3]);
+  const split = reconcile(text, spans, source, "a\nb  →x\ncd  →y\nef");  // Enter in a line: the hint stays at its end
+  assert.deepEqual([split.source, [...split.rooms.keys()]], ["a\nb\ncd\nef", [1, 2]]);
+  const joined = reconcile(text, spans, source, "ab  →xcd  →y\nef");  // Backspace at the next line's start
+  assert.deepEqual([joined.source, joined.text, joined.caret], ["abcd\nef", "abcd  →y\nef", 2]);  // the hint goes; the next paint draws it again
+  const across = reconcile(text, spans, source, "aZ  →y\nef");  // a selection over a hint replaced
+  assert.deepEqual([across.source, across.text], ["aZ\nef", "aZ  →y\nef"]);
+  const space = reconcile(text, spans, source, "ab   →x\ncd  →y\nef", 2);  // a space typed before a hint that starts with spaces
+  assert.deepEqual([space.source, space.text], ["ab \ncd\nef", "ab   →x\ncd  →y\nef"]);
+  assert.equal(reconcile(text, spans, source, "ab   →x\ncd  →y\nef").source, "ab \ncd\nef");  // without the caret: the same template
 });
 
 test("a 🎲 stands at the end of a line the language model writes for; Insert and Keep the direction edit its place (#173)", async () => {
@@ -991,8 +1032,8 @@ test("a 🎲 stands at the end of a line the language model writes for; Insert a
   const text = "@h3 t2va\nSHOT 5s: static\nA __animal__ with --a small object--.";
   assert.doesNotMatch(highlight(text, known), /llm-key/);  // no language model set: no keys
   const html = highlight(text, known, { llm: true, hints: new Map([[2, { text: "→ fox", kind: "note" }]]) });
-  assert.match(html, /<span class="hint note with-keys"><span class="llm-keys"><span class="llm-key" role="button" data-llm="slot" data-what="a small object" data-dirs="" data-line="2"/);
-  assert.match(html, /<\/span><\/span><span>→ fox<\/span><\/span>/);  // the line's hint after the keys
+  assert.match(html, /<span class="hint note"><span class="h-gap"> {2}<\/span><span class="hkey">\u00a0{3}<span class="llm-key" role="button" data-llm="slot" data-what="a small object" data-dirs="" data-line="2"/);
+  assert.match(html, /<\/span><\/span><span class="h-gap"> <\/span><span class="h-text">→ fox<\/span><\/span>/);  // the line's hint after the keys
   const slot = { kind: "slot", what: "a small object", line: 2 };
   assert.equal(insertTake(text, slot, "a brass key").split("\n")[2], "A __animal__ with a brass key.");
   assert.equal(keepDirection(text, slot, " older ").split("\n")[2], "A __animal__ with --a small object, older--.");
@@ -1015,7 +1056,7 @@ test("a library's roll at a line's end names the k-th library of its line, and U
   const { highlight } = await import("../../comfyui/web/app/highlight.js");
   const hints = new Map([[0, { text: "→ fox · bob cut", kind: "note", rolls: [[0, "fox"], [1, "bob cut"]] }]]);
   const known = new Set(["animal", "hair"]);
-  assert.match(highlight("A __animal__ with __hair__.", known, { llm: true, hints }), /→ <span class="lroll" role="button" data-lroll="0" data-line="0" [^>]*>fox<\/span> · <span class="lroll" role="button" data-lroll="1"/);
+  assert.match(highlight("A __animal__ with __hair__.", known, { llm: true, hints }), /→ <\/span><span class="lroll" role="button" data-lroll="0" data-line="0" [^>]*>fox<\/span><span class="h-rolls"> · <\/span><span class="lroll" role="button" data-lroll="1"/);
   assert.doesNotMatch(highlight("A __animal__ with __hair__.", known, { hints }), /lroll/);  // no language model: plain text
 });
 

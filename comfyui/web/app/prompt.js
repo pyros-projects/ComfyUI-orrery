@@ -1,7 +1,8 @@
 // Prompt tab: preset bar, the highlighted editor with completion, dials, and a way into Test.
 import { KEYWORDS, castNames, inlineLibraries, suggest } from "../orrery-complete.js";
 import { chosen, closeMenu, drawMenu, fillMenu, joinChoices, keptScroll, reveal } from "./dialmenu.js";
-import { esc, highlight } from "./highlight.js";
+import { esc, highlight, hintRooms } from "./highlight.js";
+import { bindRoom, setRooms } from "./textroom.js";
 import { annotationLines, mergeHints, shownHints } from "./annotate.js";
 import { wireHover } from "./hover.js";
 import { hintsFor } from "./remember.js";
@@ -289,7 +290,7 @@ export function renderPrompt(app) {
     paintStage(app, true);
     paintStageLive(app);
   } else {
-    const ed = app.view.querySelector(".editor textarea"), pre = app.view.querySelector(".editor pre.hl");
+    const ed = bindRoom(app.view.querySelector(".editor textarea")), pre = app.view.querySelector(".editor pre.hl");
     ed.value = app.text;
     ed.readOnly = !!app.state.sweepQueue;
     paint();
@@ -459,6 +460,8 @@ function paintEditor(app) {
   if (painted.get(pre) !== key) {
     painted.set(pre, key);
     pre.innerHTML = `${highlight(app.text, known, { llm, chunks, segment, sceneActs: acts, hints })}\n`;
+    const ed = pre.parentElement.querySelector("textarea");
+    if (ed) setRooms(ed, hintRooms(app.text, known, { llm, hints }));  // the textarea holds the hints too (#416)
   }
   if (chunks && app.data.timeline !== false && app.data.chain === undefined) {  // a reel typed or pasted in
     app.data.chain = null;
