@@ -9,6 +9,9 @@ checks) are left out.
 
 ### Added
 
+- The preview steps through a reel (#430): ⏮ ⏭ to the scene before or after (its circled take), ‹ › through the
+  scene's takes over its clips, and with the preview focused ← → for scenes, Shift+← → for takes. The frame picker
+  keeps ← → for frames.
 - A transport in every scene divider (#340): ⏮ ⏭ move Next clip to the scene before or after, ▶ Rolls, +1/+2/+4 sets
   the clips a Roll plays and 🔒 holds the clip, the footer's controls where you are, however tall the node; ⧉ duplicates
   the scene and 🗑 deletes it, with Undo (#344).

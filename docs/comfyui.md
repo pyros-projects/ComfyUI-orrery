@@ -145,7 +145,12 @@ Nodes under **orrery**:
     playing with its controls, or a template's result. A click only shows: the take that
     counts, the **circled** one (the film's, in a reel), has the golden border, and the
     preview's **Circle this take** chooses another (#319; only circling gives the node a
-    take's seed). For a reel's clip in the film, **Pick frames** steps through it
+    take's seed). In a reel, the buttons around **Clip N** step through what was made
+    (#430). ⏮ ⏭ go to the scene before or after, to its first clip's circled take, and
+    pass scenes with no clip yet. ‹ › go to the take before or after in the scene, over
+    its clips in order. They show the take as a click does. With the preview focused
+    (click into it), ← → step scenes and Shift+← → step takes. For a reel's clip in the
+    film, **Pick frames** steps through it
     frame by frame (← →, M marks a frame) and **Write REMEMBER:** puts the frames marked
     into its scene as `REMEMBER: frames 12, 40 as …` (#223).
     A template without scenes (a Krea prompt, an `@h3` scene) has its

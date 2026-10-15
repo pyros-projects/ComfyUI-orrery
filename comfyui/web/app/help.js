@@ -134,7 +134,7 @@ function pageHTML(app, page) {
   if (page === "models") return `<div class="tips">${TIPS.map(([k, tip]) => `<p><b>${k}.</b> ${esc(tip)}</p>`).join("")}</div>`;
   if (page === "keys") {
     return `<p class="muted flush"><code>__</code> libraries, by any part of the name (<code>__hai</code> finds <code>characters/gothic/hair</code>) · <code>__name[</code> tags · <code>__name#</code> properties and their values · <code>$</code> bindings · <code>SHOT 5s:</code> camera words · ↑↓ choose · ↵ or Tab insert · Esc close · Ctrl+Space opens the completion where the caret is</p>`
-      + `<p class="muted flush">In the preview's frame picker: ← → a frame back or on, M marks the frame.</p>`;
+      + `<p class="muted flush">In a reel's preview (click into it): ← → the scene before or after, Shift+← → the take before or after in the scene. In its frame picker: ← → a frame back or on, M marks the frame.</p>`;
   }
   if (page === "settings") {
     return `<p class="muted flush">The gear opens them, the gear again brings the tab back: Home, Language model, Writers, Editor (with where the annotations go: at the line ends, on hover, or none), Clips (live preview, sample surfing), Log and Reset (ratings, history, gallery, presets, libraries or everything, each asked first). A setting is saved the moment it changes; the home folder, an API endpoint (checked first) and a writer's text have buttons of their own.</p>`;
