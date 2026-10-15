@@ -331,6 +331,23 @@ def test_the_node_writes_the_chunk_its_segment_asks_for(home, monkeypatch):
     assert set(json.loads(first[1])["kept"]) == {"bindings", "handoff"}  # what its take keeps for the clips after it (#261)
 
 
+def test_with_orrery_continue_a_clip_whose_clip_before_is_not_in_the_film_starts_afresh(home, monkeypatch):
+    """#415: the node asks Orrery Film what it holds; without Orrery Continue the reel runs as written."""
+    from orrery import film
+    from orrery.comfy import h3_length
+    fake_loras(monkeypatch, ["x/all.safetensors", "two.safetensors"])
+    sys.modules["folder_paths"].get_output_directory = lambda: str(home)
+    monkeypatch.setattr(film, "held", lambda output, chain: frozenset())
+    _, picks, _, _, _, length, *_ = run_prompt(REEL, 1, "h3-base", str(home), segment=1, continued=True)
+    assert json.loads(picks)["continues"] is None and length == h3_length(4)  # no pinned frames
+    monkeypatch.setattr(film, "held", lambda output, chain: frozenset({0}))
+    _, picks, _, _, _, length, *_ = run_prompt(REEL, 1, "h3-base", str(home), segment=1, continued=True)
+    assert json.loads(picks)["continues"] == 0 and length == h3_length(4 + 22 / 24)
+    monkeypatch.setattr(film, "held", lambda output, chain: frozenset())
+    _, picks, *_ = run_prompt(REEL, 1, "h3-base", str(home), segment=1)
+    assert json.loads(picks)["continues"] == 0  # Motion Context or no continuation: as written
+
+
 def test_a_text_templates_lora_line_goes_on_the_model_not_into_the_prompt(home, monkeypatch):
     """#311: a Krea template's LORA: line stayed in the prompt, and the model got no LoRA."""
     fake_loras(monkeypatch, ["girls/nicegirls_krea2.safetensors", "lenovo_krea2.safetensors"])

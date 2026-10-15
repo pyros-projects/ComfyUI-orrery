@@ -342,6 +342,42 @@ def test_a_clip_that_starts_afresh_knows_the_take_it_came_after(tmp_path):
         film.walk_to(tmp_path, "h3_context", "seg_0001_nothere1")
 
 
+def test_a_clip_after_a_gap_starts_afresh_and_the_film_cuts_to_it(tmp_path):
+    """#415: a clip whose clip before was never rendered is kept at its place; the film joins what it holds."""
+    a = take(tmp_path, 0, n=24)
+    with pytest.raises(film.FilmError, match="segment 2"):
+        take(tmp_path, 3)  # it would continue clip 3, which the film does not hold
+    gap = take(tmp_path, 3, n=30, continues=None)  # it starts afresh
+    meta = json.loads((gap / "meta.json").read_text())
+    assert (meta["continues"], meta["after"], meta["follows"]) == (None, None, None)
+    assert film.held(tmp_path, "h3_context") == frozenset({0, 3})
+    listed = chain.listing(tmp_path, "h3_context")["clips"]
+    assert [(c["segment"], c["frames"]) for c in listed] == [(0, 24), (3, 30)]
+    assert chain.clip_file(tmp_path, "h3_context", 1) is None and chain.clip_file(tmp_path, "h3_context", 3) == gap / "video.mp4"
+    assert decoded(active_run(tmp_path) / "film.mp4")[0] == 54  # clip 1, then a cut to clip 4
+    on = take(tmp_path, 4, n=12, fill=0.4)  # the clip after it continues it as usual
+    assert json.loads((on / "meta.json").read_text())["after"] == gap.name
+    assert (film.previous_tail(tmp_path, "h3_context", 5).video == 0.4).all()
+    assert film.past(tmp_path, "h3_context", 5) == {}  # the gap rolls as before; these takes kept nothing
+    assert sorted(film.takes(tmp_path, "h3_context")) == [0, 3, 4]
+    grown = film.tree(tmp_path, "h3_context")
+    assert grown["path"] == [a.name, None, None, gap.name, on.name]
+    assert {t["folder"]: t["parent"] for t in grown["takes"]}[gap.name] is None  # a root of the tree
+    mid = take(tmp_path, 1, n=18)  # the gap filled later: it continues clip 1, and the clips after the gap stay
+    assert [(c["segment"], c["frames"]) for c in chain.listing(tmp_path, "h3_context")["clips"]] == [(0, 24), (1, 18), (3, 30), (4, 12)]
+    assert film.held(tmp_path, "h3_context") == frozenset({0, 1, 3, 4})
+    assert decoded(active_run(tmp_path) / "film.mp4")[0] == 84
+    film.walk_to(tmp_path, "h3_context", a.name)  # a path from clip 1: a's walked path, the clips after the gap gone
+    assert film.held(tmp_path, "h3_context") == frozenset({0, 1})
+    assert film.walk_to(tmp_path, "h3_context", on.name)["clips"] == 5  # the root after the gap: the film before it stays
+    assert film.tree(tmp_path, "h3_context")["path"] == [a.name, mid.name, None, gap.name, on.name]
+    film.pick_take(tmp_path, "h3_context", 3, gap.name)
+    assert film.end_film(tmp_path, "h3_context", 3) == {"clips": 4}
+    assert film.tree(tmp_path, "h3_context")["path"] == [a.name, mid.name, None, gap.name]
+    film.delete_take(tmp_path, "h3_context", 3, gap.name)  # its only take: the film ends before it, and before the gap
+    assert film.tree(tmp_path, "h3_context")["path"] == [a.name, mid.name]
+
+
 def test_a_take_names_the_scene_and_the_template_it_was_made_with(tmp_path):
     """#242: the tree and the takes under a clip tell a take made with another version of its scene."""
     take(tmp_path, 0, meta={"template": "0123456789abcdef", "chunk": 0})

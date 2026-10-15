@@ -43,8 +43,8 @@ export function sectionHTML(app, c) {
       : app.reelPath() ? "never plays at this seed: the walk does not reach it" : "walking the reel at this seed…"}</span>`;
   }
   const clips = new Map((app.data.chain?.clips || []).map((x) => [x.segment, x]));
-  const segment = Number(app.bridge.getSegment()), segs = segmentsOf(c, clips);
-  return segs.map((s) => takesHTML(app, s, c, clips.has(s) || s === segment)).join("");
+  const segs = segmentsOf(c, clips);
+  return segs.map((s) => takesHTML(app, s, c)).join("");
 }
 
 // The × that deletes a take (#214), on hover; a click asks in place.
@@ -53,13 +53,13 @@ function delHTML(folder) {
 }
 
 // The column beside a clip's takes (#245, #319), the results' head: + take, ×N, 📌 and play all on top, the clip in
-// numbers, deleting at the bottom. `ready`: the clip is made, or the next to make, so + take can make one.
-export function takesHeadHTML(app, s, takes, c = {}, ready = true) {
+// numbers, deleting at the bottom. + take makes any clip: one whose clip before is not in the film starts afresh (#415).
+export function takesHeadHTML(app, s, takes, c = {}) {
   const film = takes.findIndex((t) => t.active), on = takes[film], n = c.index ?? 0;
   const newest = takes.map((t) => String(t.created || "")).sort().pop()?.slice(11, 16), older = takes.filter((t) => versionOf(app, t)).length;
   const attr = (act) => (act === "play" ? "data-playall" : `data-scene-act="${act}" data-chunk="${n}" data-seg="${s}"`);
   return stripHeadHTML(app, { attr, keep: kept(app, n), play: takes.length > 1, title: `clip ${s + 1}`, sub: c.title || "",
-    off: app.state.sweepQueue ? "A sweep is queueing" : ready ? "" : `Clip ${s + 1} comes after clip ${s}: make that one first`,
+    off: app.state.sweepQueue ? "A sweep is queueing" : "",
     stats: statHTML("takes", takes.length) + statHTML("circled", on ? `#${film + 1}` : "none")
       + (on ? statHTML("seed", `${on.seed ?? "?"}${on.take ? ` + ${on.take}` : ""}`) : "") + (newest ? statHTML("newest", newest) : "")
       + (older ? statHTML("✎ other prompt", older, "th-ver") : ""),
@@ -85,9 +85,9 @@ export function takeVars(app, least = Number(app.data.take_min) || 54) {
 }
 
 // A clip's takes (#206), from its first (#319): hover plays one, a click shows it in the preview, which circles it.
-function takesHTML(app, s, c, ready) {
+function takesHTML(app, s, c) {
   const takes = app.data.chain?.takes?.[s] || [];
-  return `<div class="cm-takes" data-seg="${s}" style="${takeVars(app)}">${takesHeadHTML(app, s, takes, c, ready)}<div class="cm-takes-list">${takes.map((t, i) =>
+  return `<div class="cm-takes" data-seg="${s}" style="${takeVars(app)}">${takesHeadHTML(app, s, takes, c)}<div class="cm-takes-list">${takes.map((t, i) =>
     `<button type="button" class="take${t.active ? " on" : ""}" data-take="${esc(t.folder)}" data-seg="${s}" title="Take ${i + 1} · seed ${t.seed ?? "?"}`
     + `${t.take ? ` + ${t.take}` : ""}${t.active ? " · circled: in the film" : " · click to show it"}">`
     + `<img loading="lazy" alt="" src="${app.api.takeThumbURL(app.bridge.chain(), t.folder)}"><span class="n">${i + 1}</span>${verHTML(app, t)}${delHTML(t.folder)}</button>`).join("")}`

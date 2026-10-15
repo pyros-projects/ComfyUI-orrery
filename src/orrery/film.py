@@ -13,7 +13,9 @@ orrery.chain reads either store; `film.mp4` joins them. A take is a folder:
     meta.json    segment, frames, seed, template …
 
 Rendering segment N again makes the new take active and drops the takes after it, which continued
-another one; segment 0 starts a new run only when the size or the sound changes. Older takes and runs stay
+another one; segment 0 starts a new run only when the size or the sound changes. A clip whose clip before
+the film does not hold starts afresh (#415): `clips` keeps a gap (null) for the segments never rendered,
+and the film joins what it holds. Older takes and runs stay
 on disk. A take's meta names the take
 it continues (`after`), so sample surfing (#206) offers only the takes that fit the clip before, and
 `pick_take` makes one of them active again.
@@ -76,16 +78,39 @@ def _active(root: Path) -> tuple[Path | None, dict]:
 
 
 def _continues(clips: list, take: int, segment: int) -> bool:
-    """Whether the take of segment `take` continues segment `segment`, itself or through the ones between."""
+    """Whether the take of segment `take` continues segment `segment`, itself or through the ones between; a gap
+    (#415) continues nothing."""
     while take is not None and take > segment:
+        if clips[take] is None:
+            return False
         take = clips[take].get("continues", take - 1)
     return take == segment
 
 
-def _before(latent_path: str, segment: int, run: Path | None, clips: list) -> None:
-    if run is None or len(clips) < segment:
-        raise FilmError(f"clip {segment + 1} continues clip {segment}, which the reel {latent_path!r} does not hold "
-                        f"yet: render clip {len(clips) + 1} first (segment {len(clips)}), or Restart the reel.")
+def _before(latent_path: str, segment: int, run: Path | None, clips: list, continues: int) -> None:
+    """Raises unless the film holds the clip `segment` continues."""
+    if run is None or continues >= len(clips) or clips[continues] is None:
+        raise FilmError(f"clip {segment + 1} continues clip {continues + 1}, which the reel {latent_path!r} does not "
+                        f"hold yet: render clip {continues + 1} first (segment {continues}), or Restart the reel.")
+
+
+def _folder(clips: list, segment: int) -> str | None:
+    """The folder of the take the film holds at `segment`; None past its end or in a gap (#415)."""
+    return clips[segment]["folder"] if 0 <= segment < len(clips) and clips[segment] is not None else None
+
+
+def _trimmed(clips: list) -> list:
+    """The film's clips without the gaps at its end: it ends with a clip."""
+    clips = list(clips)
+    while clips and clips[-1] is None:
+        clips.pop()
+    return clips
+
+
+def held(output: Path | str, latent_path: str) -> frozenset[int]:
+    """The segments the active run's film holds a take of (#415): a clip continues one only if it is there."""
+    run, state = _active(_root(output, latent_path))
+    return frozenset(k for k, c in enumerate(state.get("clips", [])) if c is not None) if run is not None else frozenset()
 
 
 def previous_tail(output: Path | str, latent_path: str, segment: int, continues: int | None = None) -> Tail:
@@ -93,10 +118,11 @@ def previous_tail(output: Path | str, latent_path: str, segment: int, continues:
     else segment - 1's."""
     run, state = _active(_root(output, latent_path))
     clips = state.get("clips", [])
-    _before(latent_path, segment, run, clips)
+    continues = segment - 1 if continues is None else continues
+    _before(latent_path, segment, run, clips, continues)
     import numpy as np
 
-    take = run / clips[segment - 1 if continues is None else continues]["folder"]
+    take = run / clips[continues]["folder"]
     with np.load(take / "tail.npz") as stored:
         video, audio = stored["video"], stored["audio"]
     meta = json.loads((take / "meta.json").read_text(encoding="utf-8"))
@@ -124,19 +150,20 @@ def save_take(output: Path | str, latent_path: str, segment: int, frames: Sequen
     run, state = _active(root)
     clips = state.get("clips", [])
     was = state.get("settings") or settings
-    if segment == 0 and (run is None or was != settings):  # clip 1 stays in its run, beside its other takes
+    continues = segment - 1 if continues == -1 else continues
+    if run is None or (segment == 0 and was != settings):  # clip 1 stays in its run, beside its other takes
         run, clips, state = root / f"run_{time.strftime('%Y%m%d-%H%M%S')}_{uuid.uuid4().hex[:6]}", [], {}
-    elif segment:
-        _before(latent_path, segment, run, clips)
+    if segment and continues is not None:
+        _before(latent_path, segment, run, clips, continues)
+    if segment and clips:
         if was[:2] != settings[:2]:
             raise FilmError(f"clip {segment + 1} is {width}×{height}, the reel's clips before it "
                             f"{was[0]}×{was[1]}: a reel keeps one size (Restart it to change).")
         if was[3:] != settings[3:]:
             raise FilmError(f"clip {segment + 1}'s sound is {sample_rate} Hz × {sound.shape[0]}, the reel's "
                             f"{was[3]} Hz × {was[4]}.")
-    continues = segment - 1 if continues == -1 else continues
-    after = clips[continues]["folder"] if continues is not None and 0 <= continues < len(clips) else None
-    follows = clips[segment - 1]["folder"] if 0 < segment <= len(clips) else None  # its parent in the take tree (#240)
+    after = _folder(clips, continues) if continues is not None else None
+    follows = _folder(clips, segment - 1)  # its parent in the take tree (#240); none after a gap (#415)
     last = dict(state.get("last") or {})
     name = f"seg_{segment:04d}_{uuid.uuid4().hex[:8]}"
     tmp = run / f".{name}.tmp"
@@ -157,7 +184,8 @@ def save_take(output: Path | str, latent_path: str, segment: int, frames: Sequen
                                    encoding="utf-8")
     os.replace(tmp, run / name)
     later = list(itertools.takewhile(lambda c: not _continues(clips, c, segment), range(segment + 1, len(clips))))
-    clips = [*clips[:segment], {"folder": name, "frames": count, "continues": continues, **({"test": True} if test else {})},
+    clips = [*clips[:segment], *[None] * (segment - len(clips)),  # the segments never rendered are a gap (#415)
+             {"folder": name, "frames": count, "continues": continues, **({"test": True} if test else {})},
              *(clips[c] for c in later)]
     if follows:
         last[follows] = name  # the take last made on its parent: the way back along this path (#240)
@@ -267,11 +295,10 @@ def takes(output: Path | str, latent_path: str) -> dict[int, list[dict]]:
     for take in sorted(p for p in run.iterdir() if p.is_dir() and _TAKE.match(p.name)):
         segment, meta = int(_TAKE.match(take.name).group(1)), _meta(take)
         before = meta.get("continues")
-        fits = meta.get("after") is None or (before is not None and 0 <= before < len(clips)
-                                            and clips[before]["folder"] == meta["after"])
-        if fits and segment < len(clips):
+        fits = meta.get("after") is None or (before is not None and _folder(clips, before) == meta["after"])
+        if fits and _folder(clips, segment) is not None:
             out.setdefault(segment, []).append({"folder": take.name, "seed": meta.get("seed"), "take": meta.get("take") or 0,
-                                                "created": meta.get("created"), "active": clips[segment]["folder"] == take.name,
+                                                "created": meta.get("created"), "active": _folder(clips, segment) == take.name,
                                                 "scene": meta.get("chunk"), "template": meta.get("template"),
                                                 "_at": _made(take, meta)})
     for listed in out.values():
@@ -303,7 +330,7 @@ def _take(output: Path | str, latent_path: str, segment: int, folder: str) -> tu
 
 
 def _keep(run: Path, state: dict, clips: list, last: dict | None = None) -> None:
-    settings = state.get("settings") or []
+    settings, clips = state.get("settings") or [], _trimmed(clips)
     last = state.get("last") or {} if last is None else last
     write_atomic(run / "clips.json", json.dumps({"settings": settings, "clips": clips, "last": last}, indent=2))
     _join(run, clips, int(settings[3]) if len(settings) > 3 else 48000)
@@ -336,7 +363,7 @@ def pick_take(output: Path | str, latent_path: str, segment: int, folder: str) -
     after it that continued the one it replaces leave the film; when none stays, the film goes on along the path
     last walked from the take picked (#240), so a path comes back. Returns the take's seed and take number."""
     run, state, clips = _take(output, latent_path, segment, folder)
-    if segment >= len(clips):
+    if _folder(clips, segment) is None:
         raise FilmError(f"clip {segment + 1} is not in the reel {latent_path!r}'s film.")
     fitting = {t["folder"] for t in takes(output, latent_path).get(segment, [])}
     if folder not in fitting:
@@ -345,7 +372,7 @@ def pick_take(output: Path | str, latent_path: str, segment: int, folder: str) -
     later = list(itertools.takewhile(lambda c: not _continues(clips, c, segment), range(segment + 1, len(clips))))
     onward = [] if later else [_entry(run, f) for f in _onward(run, last, folder)]
     clips = [*clips[:segment], _entry(run, folder, clips[segment]), *(clips[c] for c in later), *onward]
-    if segment:
+    if _folder(clips, segment - 1):
         last[clips[segment - 1]["folder"]] = folder  # walked: the way back along it
     _keep(run, state, clips, last)
     return {"folder": folder, "seed": meta.get("seed"), "take": meta.get("take") or 0}
@@ -360,6 +387,8 @@ def walk_to(output: Path | str, latent_path: str, folder: str) -> dict:
     path = [folder]
     while (segment := int(_TAKE.match(path[0]).group(1))) > 0:
         parent = _parent(run, path[0])
+        if not parent and _meta(run / path[0]).get("continues", -1) is None:  # it started afresh after a gap (#415)
+            break
         if not parent or not (run / parent).is_dir() or int(_TAKE.match(parent).group(1)) != segment - 1:
             raise FilmError(f"take {path[0]!r} does not say which take of clip {segment} it came after, so no path "
                             "leads to it from clip 1; pick it under its clip.")
@@ -367,17 +396,20 @@ def walk_to(output: Path | str, latent_path: str, folder: str) -> dict:
     last = dict(state.get("last") or {})
     path += _onward(run, last, folder)
     last.update({path[i]: path[i + 1] for i in range(len(path) - 1)})
-    clips = {c["folder"]: c for c in state.get("clips", [])}
-    _keep(run, state, [_entry(run, f, clips.get(f)) for f in path], last)
+    listed = state.get("clips", [])
+    clips = {c["folder"]: c for c in listed if c is not None}
+    before = [*listed[:segment], *[None] * (segment - len(listed))]  # a root after a gap: the film before it stays
+    film = _trimmed([*before, *(_entry(run, f, clips.get(f)) for f in path)])
+    _keep(run, state, film, last)
     meta = _meta(run / folder)
-    return {"folder": folder, "seed": meta.get("seed"), "take": meta.get("take") or 0, "clips": len(path)}
+    return {"folder": folder, "seed": meta.get("seed"), "take": meta.get("take") or 0, "clips": len(film)}
 
 
 def end_film(output: Path | str, latent_path: str, segment: int) -> dict:
     """The film ends after clip `segment + 1` (#240); the clips after it stay where the tree remembers them."""
     run, state = _active(_root(output, latent_path))
     clips = state.get("clips", [])
-    if run is None or not 0 <= segment < len(clips):
+    if run is None or _folder(clips, segment) is None:
         raise FilmError(f"the reel {latent_path!r} has no clip {segment + 1} in its film.")
     _keep(run, state, clips[: segment + 1])
     return {"clips": segment + 1}
@@ -389,6 +421,8 @@ def past(output: Path | str, latent_path: str, segment: int) -> dict[int, dict]:
     run, state = _active(_root(output, latent_path))
     out = {}
     for t, clip in enumerate(state.get("clips", [])[:max(segment, 0)] if run is not None else []):
+        if clip is None:  # a gap (#415): that clip rolls as before
+            continue
         meta = _meta(run / clip["folder"])
         if isinstance(meta.get("kept"), dict) and meta.get("chunk") is not None:
             out[t] = {"scene": meta["chunk"], **meta["kept"]}
@@ -409,7 +443,7 @@ def tree(output: Path | str, latent_path: str) -> dict:
                     "scene": meta.get("chunk"), "template": meta.get("template"), "frames": meta.get("frames"),
                     "continues": meta.get("continues"), "test": bool(meta.get("test")), "_at": _made(take, meta)})
     out.sort(key=lambda t: (t["segment"], t.pop("_at")))
-    return {"takes": out, "path": [c["folder"] for c in state.get("clips", [])], "last": state.get("last") or {}}
+    return {"takes": out, "path": [c["folder"] if c else None for c in state.get("clips", [])], "last": state.get("last") or {}}
 
 
 def delete_take(output: Path | str, latent_path: str, segment: int, folder: str) -> dict:
@@ -417,7 +451,7 @@ def delete_take(output: Path | str, latent_path: str, segment: int, folder: str)
     of the clip that fits; without one, the film ends before the clip. Returns the take in the film there now (as
     pick_take does), or folder None."""
     run, state, clips = _take(output, latent_path, segment, folder)
-    got = {"folder": clips[segment]["folder"] if segment < len(clips) else None}
+    got = {"folder": _folder(clips, segment)}
     if got["folder"] == folder:
         others = [t["folder"] for t in takes(output, latent_path).get(segment, []) if t["folder"] != folder]
         if others:
@@ -438,7 +472,7 @@ def delete_takes(output: Path | str, latent_path: str, segment: int, keep_film: 
     shown = [t["folder"] for t in takes(output, latent_path).get(segment, [])]
     if run is None or not shown:
         raise FilmError(f"clip {segment + 1} has no takes in the reel {latent_path!r}.")
-    film = clips[segment]["folder"] if segment < len(clips) else None
+    film = _folder(clips, segment)
     gone = [f for f in shown if not (keep_film and f == film)]
     if film in gone:
         _keep(run, state, clips[:segment])
@@ -545,7 +579,7 @@ def _join(run: Path, clips: list[dict], sample_rate: int) -> None:
     import av
     import numpy as np
 
-    clips = [c for c in clips if not c.get("test")]
+    clips = [c for c in clips if c is not None and not c.get("test")]  # gaps (#415) and tests left out
     if not clips:
         (run / "film.mp4").unlink(missing_ok=True)
         return

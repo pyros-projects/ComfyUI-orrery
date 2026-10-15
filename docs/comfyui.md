@@ -351,7 +351,9 @@ Nodes under **orrery**:
 
   The H3 node's `length` comes from the Orrery Prompt (it counts the 22 frames).
   Orrery Continue drops a first-frame image from the conditioning in those
-  clips (they start with the one before); the first clip and a `(test)` scene start afresh; Orrery Film refuses a
+  clips (they start with the one before); the first clip and a `(test)` scene start afresh, and so does a clip
+  whose clip before is not in the film (#415): roll scene 5 before scenes 2 to 4 are made, and it opens as
+  clip 1 does, the film cutting from what it holds to it; the clips after it continue it. Orrery Film refuses a
   clip whose pinned frames the sampler changed (a sampler that ignores
   `noise_mask`). Orrery Film trims the 22 frames, puts out the clip
   (`images`, `audio`) and `film`, the reel so far, and keeps the takes under
