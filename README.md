@@ -134,7 +134,19 @@ mklink /J C:\path\to\ComfyUI\custom_nodes\orrery C:\path\to\orrery\comfyui
 cd orrery
 uv sync                  # core: only PyYAML
 uv sync --extra local    # + torch and transformers for a local language model
+uv sync --extra serve    # + aiohttp for orrery serve
 ```
+
+`orrery serve` serves orrery's HTTP API, the `/orrery/*` routes the node app
+uses, on a server of its own, without ComfyUI and without loading a model. The
+[standalone studio](https://github.com/pyros-projects/orrery) talks to it:
+
+```bash
+uv run orrery serve --home ~/orrery-test --output ~/ComfyUI/output   # http://127.0.0.1:8189
+```
+
+`--output` is ComfyUI's output folder, where the take tree's clips are. A route
+that needs a running ComfyUI answers that it does.
 
 ### Prerequisites
 

@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -288,6 +289,29 @@ def _cmd_preset(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args) -> int:
+    try:
+        from aiohttp import web
+    except ModuleNotFoundError:
+        print("orrery: serve needs aiohttp: pip install 'orrery[serve]'", file=sys.stderr)
+        return 2
+    from orrery import webapi
+
+    if args.home:  # every request resolves the home again; ORRERY_HOME wins over the setting
+        os.environ["ORRERY_HOME"] = str(Path(args.home).expanduser().resolve())
+    if args.output:
+        webapi.OUTPUT_DIR = Path(args.output).expanduser().resolve()
+    app = web.Application(client_max_size=100 * 1024 * 1024)  # ComfyUI's default upload limit
+    routes = web.RouteTableDef()
+    webapi.register(routes, web)
+    app.add_routes(routes)
+    output = webapi.OUTPUT_DIR or "none (the take tree needs --output)"
+    print(f"orrery serve: home {resolve_home().root}, output {output}", flush=True)
+    print(f"http://{args.host}:{args.port}/orrery/...", flush=True)
+    web.run_app(app, host=args.host, port=args.port, print=None)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="orrery", description=__doc__)
     parser.add_argument("--home", help="orrery home (default: $ORRERY_HOME or ~/.orrery)")
@@ -361,6 +385,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_rm = preset_sub.add_parser("rm", help="delete a preset")
     p_rm.add_argument("name")
     preset.set_defaults(func=_cmd_preset)
+
+    serve = sub.add_parser("serve", help="serve orrery's HTTP API (the /orrery/* routes) without ComfyUI")
+    serve.add_argument("--home", default=argparse.SUPPRESS, help="orrery home (as orrery --home)")
+    serve.add_argument("--output", help="ComfyUI's output folder, for the take tree's clips and films")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8189)
+    serve.set_defaults(func=_cmd_serve)
     return parser
 
 

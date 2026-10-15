@@ -1,8 +1,8 @@
 """The node app's HTTP API as plain functions: `fn(home, args) -> dict`, or a Path to send.
 
-comfyui/__init__.py registers ROUTES with ComfyUI's server. `call` turns ApiError
-(and crashes) into JSON error bodies, so every request answers with a sentence the
-UI can show. The contract lives in docs/plan-node-app.md.
+comfyui/__init__.py registers ROUTES with ComfyUI's server, and `orrery serve` with a
+server of its own. `call` turns ApiError (and crashes) into JSON error bodies, so every
+request answers with a sentence the UI can show. The contract lives in docs/plan-node-app.md.
 """
 
 import asyncio
@@ -49,6 +49,9 @@ class ApiError(Exception):
         return {"error": str(self), **self.extra}
 
 
+COMFYUI = {"folder_paths", "comfy", "comfy_api", "comfy_execution", "server", "nodes"}  # its modules
+
+
 def call(fn, args: dict) -> tuple[int, object]:
     args = dict(args)
     home = resolve_home(args.pop("home", None) or None)
@@ -56,6 +59,11 @@ def call(fn, args: dict) -> tuple[int, object]:
         return 200, fn(home, args)
     except ApiError as err:
         return err.status, err.body()
+    except ModuleNotFoundError as err:
+        if (err.name or "").split(".")[0] in COMFYUI:  # under `orrery serve`
+            return 503, {"error": "orrery: this needs a running ComfyUI."}
+        traceback.print_exc()
+        return 500, {"error": f"orrery: {err}"}
     except Exception as err:  # noqa: BLE001 - a readable error beats a dead request
         traceback.print_exc()
         return 500, {"error": f"orrery: {err}"}
@@ -617,9 +625,16 @@ def galaxy_collection_delete(home: Home, args: dict) -> dict:
     return {"path": _gx(gx.delete_collection, home, args.get("path")), "collections": gx.collections(home)}
 
 
-def _output_dir() -> Path:
-    import folder_paths  # ComfyUI
+OUTPUT_DIR: Path | None = None  # ComfyUI's output folder, set by `orrery serve --output`
 
+
+def _output_dir() -> Path:
+    if OUTPUT_DIR is not None:
+        return OUTPUT_DIR
+    try:
+        import folder_paths  # ComfyUI
+    except ModuleNotFoundError:
+        raise ApiError(503, "orrery: this needs ComfyUI's output folder (orrery serve --output DIR).") from None
     return Path(folder_paths.get_output_directory())
 
 
