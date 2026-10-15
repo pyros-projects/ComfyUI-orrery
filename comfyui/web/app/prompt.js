@@ -6,7 +6,7 @@ import { annotationLines, mergeHints, shownHints } from "./annotate.js";
 import { wireHover } from "./hover.js";
 import { hintsFor } from "./remember.js";
 import { icon } from "./icons.js";
-import { applyDials, chunkInfo, copyScene, dials, dropScene, hasGoto, knobKey, knobsOf, withFields, plays, sceneStep, folderColor, pickerGroups, sceneTarget, shape, stats, stripComments, PLAN_HINT, matches, templateHash } from "./model.js";
+import { applyDials, chunkInfo, copyScene, dials, dropScene, hasGoto, knobKey, knobsOf, withFields, plays, sceneAtCaret, sceneStep, sceneTransport, folderColor, pickerGroups, sceneTarget, shape, stats, stripComments, PLAN_HINT, matches, templateHash } from "./model.js";
 import { drag, thumbHTML } from "./parts.js";
 import { openSave } from "./save.js";
 import { openSceneStats } from "./scenestats.js";
@@ -85,27 +85,54 @@ function syncChain(app) {
 
 // A scene's button in its divider (#204): its numbers (📊). What makes takes, + take, ×N and 📌, is in each clip's
 // strip of takes (#319), the results' head: there it makes a take of that clip.
-// The reel's transport in every divider (#341), the footer's controls where you are: ⏮ ⏭ move Next clip to the scene
-// before or after, ▶ Roll, +N the clips a Roll plays, 🔒 Hold; they act on the reel, whichever divider they are in.
+// The transport in every divider (#341), the footer's controls where you are: ⏮ ⏭ move Next clip to the scene
+// before or after, ▶ Roll, +N the clips a Roll plays, 🔒 Hold. Each acts on its own scene (#414): a click into a
+// scene's header makes its clip the next one first (ACTIVATES), so ▶ rolls that scene and ⏮ ⏭ step from it.
 const MORE = [1, 2, 4];
+const ACTIVATES = new Set(["prev", "roll", "more", "next", "hold", "stats", "copy"]);
 const sceneName = (c, n) => `SCENE ${n + 1}${c?.title ? ` (${c.title})` : ""}`;
 export function sceneActs(app) {
   const chunks = app.chunks() || [], seg = Number(app.bridge.getSegment()), busy = !!app.state.sweepQueue, runs = repeats(app);
-  const held = !!app.bridge.segmentHeld?.(), prev = sceneStep(chunks, seg, -1), next = sceneStep(chunks, seg, 1);
-  const more = MORE.find((m) => m > runs) ?? MORE[0];
+  const held = !!app.bridge.segmentHeld?.(), more = MORE.find((m) => m > runs) ?? MORE[0];
+  const after = runs > 1 ? ` and the ${runs - 1} after it` : "";
   const button = (act, n, inner, title, off = false, extra = "") => `<button type="button" class="scene-act" data-scene-act="${act}" data-chunk="${n}" `
     + `title="${esc(title)}" aria-label="${esc(title)}" ${extra} ${off ? "disabled" : ""}>${inner}</button>`;
-  return (c, n) => `<span class="scene-acts">`
-    + button("prev", n, icon("skip", "flip"), prev === null ? "No scene before this clip's" : `Next clip becomes ${prev + 1}: the first of the scene before`, prev === null || busy)
-    + button("roll", n, icon("play"), `Roll: clip ${seg + 1}${runs > 1 ? ` and the ${runs - 1} after it` : ""}, as Roll in the footer`, busy, 'data-roll="1"')
-    + button("more", n, `+${runs}`, `A Roll plays ${runs} clip${runs === 1 ? "" : "s"}. Click for ${more}`, busy)
-    + button("next", n, icon("skip"), next === null ? "No scene after this clip's" : `Next clip becomes ${next + 1}: the first of the scene after`, next === null || busy)
-    + button("hold", n, icon("lock"), held ? "Held: every Roll plays this clip again. Click to step on after each run"
-      : "Hold this clip: every Roll plays it again, for takes", false, `aria-pressed="${held}"`)
-    + button("stats", n, icon("chart"), "This scene in numbers: where and how often it plays, what leads to it, what it rolls, what it made")
-    + button("copy", n, icon("copy"), `Duplicate ${sceneName(c, n)}: a copy right after it`)  // #344
-    + button("drop", n, icon("trash"), `Delete ${sceneName(c, n)}`)
-    + "</span>";
+  return (c, n) => {
+    const { to, now, prev, next } = sceneTransport(chunks, c, seg), none = `${sceneName(c, n)} never plays at this seed: it has no clip`;
+    const step = (at, where) => (to === null ? none : at === null ? `No scene ${where} this one` : `Next clip becomes ${at + 1}: the first of the scene ${where} this one`);
+    return `<span class="scene-acts">`
+      + button("prev", n, icon("skip", "flip"), step(prev, "before"), prev === null || busy)
+      + button("roll", n, icon("play"), to === null ? none : now ? `Roll: clip ${to + 1}${after}, as Roll in the footer`
+        : `Roll this scene: Next clip becomes ${to + 1}, then Roll plays it${after}`, to === null || busy, 'data-roll="1"')
+      + button("more", n, `+${runs}`, `A Roll plays ${runs} clip${runs === 1 ? "" : "s"}. Click for ${more}`, busy)
+      + button("next", n, icon("skip"), step(next, "after"), next === null || busy)
+      + button("hold", n, icon("lock"), to === null ? none : held && now ? "Held: every Roll plays this clip again. Click to step on after each run"
+        : `Hold clip ${to + 1}${held ? " instead" : ""}: every Roll plays it again, for takes`, to === null || (busy && !now), `aria-pressed="${held && now}"`)
+      + button("stats", n, icon("chart"), "This scene in numbers: where and how often it plays, what leads to it, what it rolls, what it made")
+      + button("copy", n, icon("copy"), `Duplicate ${sceneName(c, n)}: a copy right after it`)  // #344
+      + button("drop", n, icon("trash"), `Delete ${sceneName(c, n)}`)
+      + "</span>";
+  };
+}
+
+// A click on a SCENE line, its words or its divider, makes that scene the active one (#414); a selection does not.
+function sceneLineClick(app, ta) {
+  if (ta.selectionStart !== ta.selectionEnd) return;
+  const chunks = app.chunks(), n = sceneAtCaret(chunks, app.text, (inCell(ta) ? cellStart(app, ta) : 0) + ta.selectionStart);
+  if (n >= 0) activateScene(app, chunks[n]);
+}
+
+// A scene made the active one (#414): its clip becomes Next clip (the one it plays next, else its first), and the
+// dividers and the footer follow. False when it has no clip at this seed, or while Generate ×N queues.
+function activateScene(app, c) {
+  const seg = Number(app.bridge.getSegment()), to = c && !app.state.sweepQueue ? sceneTarget(c, seg) : null;
+  if (to === null) return false;
+  if (to !== seg) {
+    app.bridge.setSegment(to);
+    refreshFoot(app);
+    paintEditor(app);
+  }
+  return true;
 }
 
 // The seeds of N takes of clip `to` (#206): numbered on from the takes it has (seed+1, seed+2 …: reproducible),
@@ -121,9 +148,15 @@ export function surfSeeds(app, to, n, keep) {
 }
 
 async function sceneAct(app, act, n, button = null) {
+  const chunks = app.chunks() || [], c = chunks[n], was = !!c && plays(c, Number(app.bridge.getSegment()));
+  const active = ACTIVATES.has(act) && activateScene(app, c);  // #414: its own scene first
   if (act === "stats") return openSceneStats(app, n, button);  // #219, also while a sweep runs
-  const chunks = app.chunks() || [], c = chunks[n];
-  if (act === "hold") { app.bridge.holdSegment(!app.bridge.segmentHeld()); refreshFoot(app); return paintEditor(app); }
+  if (act === "hold") {  // this scene's clip: released when it is the held one, else held (the hold moves here)
+    if (!active && !was) return;
+    app.bridge.holdSegment(was ? !app.bridge.segmentHeld() : true);
+    refreshFoot(app);
+    return paintEditor(app);
+  }
   if (!c || app.state.sweepQueue) return;
   if (act === "copy" || act === "drop") {  // #344: an unsaved edit, with Undo
     const before = app.text, name = sceneName(c, n);
@@ -133,7 +166,7 @@ async function sceneAct(app, act, n, button = null) {
     return app.toast(`${act === "copy" ? `A copy of ${esc(name)} is right after it` : `${esc(name)} is deleted`} · an unsaved edit`,
       { label: "Undo", run: () => { app.text = before; app.cellsSig = null; renderPrompt(app); } });
   }
-  if (act === "roll") return generate(app);  // the footer's Roll (#341)
+  if (act === "roll") return active && generate(app);  // the footer's Roll (#341), from this scene (#414)
   if (act === "more") {
     app.bridge.props.repeat = MORE.find((m) => m > repeats(app)) ?? MORE[0];
     refreshFoot(app);
@@ -291,6 +324,7 @@ export function renderPrompt(app) {
     }
     const scene = e.target.closest("[data-scene-act]");
     if (scene) return sceneAct(app, scene.dataset.sceneAct, Number(scene.dataset.chunk), scene);
+    if (e.target.tagName === "TEXTAREA" && e.target.closest(".editor")) sceneLineClick(app, e.target);  // #414
     const act = e.target.closest("[data-act]")?.dataset.act;
     const load = e.target.closest("[data-load]");
     if (load) return app.loadPreset(load.dataset.load);
