@@ -225,6 +225,8 @@ checks) are left out.
 
 ### Fixed
 
+- A screenplay line that names a CAST member past its start (`… portrait of @ELARA wearing __couture_adjective__`)
+  shows what its libraries rolled again (#428): the editor found the line only when `@NAME` began it.
 - A scene's divider acts on its own scene (#414): a click on a `SCENE` line, its words or its divider, makes that
   scene's clip *Next clip*, and its transport starts there: ▶ rolls this scene, ⏮ ⏭ go to the scene before or after
   this one, 🔒 holds this scene's clip (from another scene's divider the hold moves there). A scene that never plays at

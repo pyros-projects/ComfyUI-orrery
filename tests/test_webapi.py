@@ -938,6 +938,16 @@ def test_every_library_in_a_line_says_what_it_rolled_where_it_is_written(home):
     assert "1" not in out["rolls"] and out["bindings"]["x"] in ("linocut", "gouache")
 
 
+def test_a_line_that_names_a_cast_member_says_what_its_libraries_rolled(home):
+    """#428: the trace has a screenplay's lines with `@HERO` written HERO; the line is found all the same, wherever
+    the member is named in it."""
+    screenplay = ("@h3 ref2va\nCAST\n@HERO (image 1): a woman\n\nSHOT 5s: static\n"
+                  "A __animal__ beside @HERO in __style__.\n@HERO feeds a __animal__.")
+    out = ok(home, webapi.annotate, template=screenplay, seed=4, target="h3-base")
+    assert [k for k, _ in out["rolls"]["5"]] == [0, 1] and out["rolls"]["5"][0][1] in ("fox", "heron", "owl")
+    assert [k for k, _ in out["rolls"]["6"]] == [0]
+
+
 def test_takes_at_the_line_ask_the_endpoint_for_one_place_at_the_seed(home, fake_api):
     """#173: a slot, a library still to be written and a > enhance line, each its place marked in the prompt as it
     rolls; a steer and the takes written before go with the next ones."""

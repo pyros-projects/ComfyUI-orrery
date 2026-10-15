@@ -1020,6 +1020,7 @@ def annotate(home: Home, args: dict) -> dict:
     """What lines of a template give at a seed, for the editor to show at their ends (#163): each binding
     as it rolled, each export, a grid's cells, and in a screenplay where each CAST member's pictures go
     (a named picture with its name). Errors leave a part empty: the editor shows what it can."""
+    from orrery.cast import bare
     from orrery.dsl import parse, traced, with_inline
     from orrery.loras import long_form
 
@@ -1064,7 +1065,9 @@ def annotate(home: Home, args: dict) -> dict:
         try:
             with traced() as sites:
                 c = compile_scene(src, seed, libs, home.weights(), segment=_int(args, "segment", 0), cell=0 if grid else None)
-            out["rolls"] = _rolls(text, sites, missing)  # a screenplay's lines roll one by one, the clip's scene among them
+            # a screenplay's lines roll one by one, the clip's scene among them, traced as compile_scene has them:
+            # `@HERO` written HERO (#428)
+            out["rolls"] = _rolls(bare(text), sites, missing)
             for m in c.scene.cast:
                 images = sorted({s.index for s in m.sources if s.kind == "image"})
                 named = list(dict.fromkeys(c.pictures[n]["name"] for n in images if n in c.pictures))
