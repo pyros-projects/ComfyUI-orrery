@@ -313,9 +313,11 @@ def _passages(result, target: str) -> list[tuple[str, str, object]]:
 
 
 def _dials(template: str, params) -> dict[str, str]:
-    """The dials (JSON or a dict) of the template's own bindings."""
+    """The dials (JSON or a dict) of the template's own bindings, and its knobs turned in the sidebar (#226: a key
+    `~scope|as written`, which override() puts in; #418)."""
     known = {name for name, _ in bindings(template)}
-    return {k: v for k, v in dial_values(params if isinstance(params, str) else json.dumps(params or {})).items() if k in known}
+    return {k: v for k, v in dial_values(params if isinstance(params, str) else json.dumps(params or {})).items()
+            if k in known or (k.startswith("~") and "|" in k)}
 
 
 def dialed(h, template: str, params) -> str:

@@ -331,6 +331,22 @@ def test_the_node_writes_the_chunk_its_segment_asks_for(home, monkeypatch):
     assert set(json.loads(first[1])["kept"]) == {"bindings", "handoff"}  # what its take keeps for the clips after it (#261)
 
 
+def test_a_knob_turned_in_the_sidebar_reaches_the_run(home, monkeypatch):
+    """#418: the node kept only the bindings' dials, so a run loaded every LoRA at the strength as written."""
+    fake_loras(monkeypatch, ["x/all.safetensors", "two.safetensors"])
+    params = json.dumps({"~-1|<lora:all:1>": "<lora:all:0>", "~1|<lora:two:0.5>": "<lora:two:0.8>", "hero": "lynx"})
+    text, picks, _, _, _, _, stack, *_ = run_prompt(REEL, 1, "h3-base", str(home), params=params, segment=1)
+    # the head's turned to 0 (which loras.apply leaves out), the scene's to 0.8
+    assert stack == [("x/all.safetensors", 0.0, 0.0, 0.0, 1.0), ("two.safetensors", 0.8, 0.8, 0.0, 1.0)]
+    assert "lynx" in text
+    assert json.loads(picks)["params"] == json.loads(params)  # a replay turns them again
+    from orrery.comfy_write import write_idea
+    seen = {}
+    monkeypatch.setattr("orrery.writers.request", lambda h, task, source, *a, **k: seen.setdefault("source", source) and None)
+    write_idea(Home(home), "continue", REEL, 1, 0, params, lambda: None, lambda: ([], {}))
+    assert "<lora:all:0>" in seen["source"] and "<lora:two:0.8>" in seen["source"]  # the writers read the run's template
+
+
 def test_a_text_templates_lora_line_goes_on_the_model_not_into_the_prompt(home, monkeypatch):
     """#311: a Krea template's LORA: line stayed in the prompt, and the model got no LoRA."""
     fake_loras(monkeypatch, ["girls/nicegirls_krea2.safetensors", "lenovo_krea2.safetensors"])
