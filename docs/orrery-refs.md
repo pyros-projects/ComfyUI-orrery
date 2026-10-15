@@ -306,9 +306,7 @@ otherwise hand on the older run's frames.
 ### Keeping a character across runs
 
 Every frame Orrery Refs fetches for a `REMEMBER:` is also stored as that image's
-**anchor**, in the orrery home under `anchors/image_N/`. The Prompt tab's
-timeline shows each anchor beside the scene whose `REMEMBER:` fills it, so you
-see what a run handed on without a preview node. The `keep_sent` switch
+**anchor**, in the orrery home under `anchors/image_N/`. The `keep_sent` switch
 on Orrery Refs decides what a run does with them:
 
 - **Off** (the default): fresh frames from this run's chain, which replace the
@@ -317,6 +315,14 @@ on Orrery Refs decides what a run does with them:
   the whole run (within its `in clips …`, if it has one), in the prompt and
   on the refs. This run's frames do not replace it. Images without an anchor
   are fetched as usual, and stored.
+
+Under a scene's takes, the Prompt tab shows its **anchors**: what each of its
+`REMEMBER:` lines hands on to the clips after it, so you see it without a
+preview node. With `keep_sent` off, that is the frames the line takes from the
+circled take; with it on, an image that has a stored anchor shows that anchor,
+marked *held*, and the line's frames wait. The head of the strip says which
+images the scene fills and whether `keep_sent` is on; the grip at its end sizes
+it.
 
 So a reel whose dancer you like can hand her to the next one: switch
 `keep_sent` on, change the story, keep the `REMEMBER:` line that fills her image,

@@ -96,6 +96,13 @@ function mount(node) {
     home: () => home?.value || "",
     nodeId: () => String(node.id),
     downstream: () => downstream(graphOf(node), node.id),
+    // An Orrery Refs reading this node's picks has keep_sent on: images with a stored anchor are held (#371).
+    keepSent: () => {
+      const g = node.graph || app.graph, linkOf = (id) => (g.links?.get ? g.links.get(id) : g.links?.[id]);
+      return (g._nodes || g.nodes || []).some((n) => (n.comfyClass || n.type) === "OrreryRefs"
+        && String(linkOf(n.inputs?.find((i) => i.name === "picks")?.link)?.origin_id) === String(node.id)
+        && n.widgets?.find((w) => w.name === "keep_sent")?.value === true);
+    },
     // Queue only the outputs this node feeds (ComfyUI's partial execution): its branch, not the whole canvas.
     // One queue item per run, so control after generate steps seed and segment between them, and a newer
     // Generate or Restart stops the loop between two runs (ComfyUI's batch count cannot be stopped).

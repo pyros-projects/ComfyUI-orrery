@@ -1,8 +1,9 @@
 // What a reel's REMEMBER: lines take and where it goes, shown before any run: the server says per line
 // where its frames go (POST /orrery/remembered, the compile's own resolution), the browser cuts the
 // frames from the clip they come from (a <video> sought to each frame, drawn), and a frame picked by eye
-// rewrites the line.
+// rewrites the line. Under a scene's takes they make its anchors (#371): what it hands on to the clips after it.
 import { esc } from "./highlight.js";
+import { statHTML } from "./results.js";
 
 export const FPS = 24;
 const LINE = /^\s*(REMEMBER|SEND):/i;
@@ -112,22 +113,40 @@ export function shown(picks) {
   return Array.from({ length: MAX_STRIP }, (_, k) => picks[Math.round((k * (picks.length - 1)) / (MAX_STRIP - 1))]);
 }
 
-// --- the strip under a scene's clips ----------------------------------------------------------------
+// --- the anchors under a scene's takes (#371) -------------------------------------------------------
 
-// One group per REMEMBER: line of the scene: its frames (filled in by fillStrip) and where they go.
-export function stripHTML(app, scene, sourceURL) {
+// The images a line fills (a RefMod has none).
+const imagesOf = (l) => l.fills.map((f) => /^image (\d+)$/.exec(f.what)?.[1]).filter(Boolean).map(Number);
+
+const ABOUT = "What this scene's REMEMBER: lines hand on to the clips after it: the frames each takes from the circled "
+  + "take (click one to pick another). With keep_sent on in Orrery Refs, an image that has a stored anchor (from an "
+  + "earlier run) is held instead, for the whole run; off, this run's frames replace the anchors";
+
+// One group per REMEMBER: line of the scene, in a strip like the takes': a head that says what it is, the frames
+// (filled in by fillStrip) and where they go, and a grip that sizes them. `keep`: Orrery Refs' keep_sent is on, so an
+// image in `stored` (anchors/image_N) is held: its anchor shows, and the line's frames wait.
+export function stripHTML(app, scene, sourceURL, { keep = false, stored = [] } = {}) {
   const lines = (app.data.remembered?.lines || []).filter((l) => l.scene === scene && l.source !== null);
   if (!lines.length) return "";
-  return `<div class="rm-strip">${lines.map((l) => {
+  const held = (n) => keep && stored.includes(n);
+  const images = [...new Set(lines.flatMap(imagesOf))];
+  const head = `<span class="cm-takes-head rm-head" title="${esc(ABOUT)}"><span class="th-mid"><span class="th-clip">anchors</span>`
+    + `<span class="th-scene">what REMEMBER: hands on</span><span class="th-stats">${statHTML("images", images.join(", ") || "none")}`
+    + `${statHTML("keep_sent", keep ? "on" : "off")}${keep ? statHTML("held", images.filter(held).join(", ") || "none") : ""}</span></span></span>`;
+  return `<div class="rm-panel" style="--rm-h:${Number(app.data.anchor_h) || 72}px">${head}<div class="rm-strip">${lines.map((l) => {
     const spans = l.fills.flatMap((f) => f.frames.map((s) => ({ span: s, step: f.step })));
-    return `<div class="rm-line${l.fills.every((f) => f.replaced) ? " replaced" : ""}" data-line="${l.line}">`
-      + `<div class="rm-frames">${spans.map((s, item) => `<span class="rm-item" data-item="${item}" data-span="${s.span.join(",")}" data-step="${s.step}"${sourceURL ? ` data-url="${esc(sourceURL)}"` : ""}></span>`).join("")}</div>`
+    const mine = imagesOf(l), kept = mine.filter(held);
+    const cls = `${l.fills.every((f) => f.replaced) ? " replaced" : ""}${mine.length && kept.length === mine.length ? " held" : ""}`;
+    return `<div class="rm-line${cls}" data-line="${l.line}"><div class="rm-frames">`
+      + kept.map((n) => `<span class="rm-anchor" title="keep_sent holds image ${n}'s stored anchor: the clips after this one get it, not the frames beside it">`
+        + `<img alt="" src="${esc(app.api.anchorURL(n, app.data.anchorV))}"><span class="rm-n">held · image ${n}</span></span>`).join("")
+      + `${spans.map((s, item) => `<span class="rm-item" data-item="${item}" data-span="${s.span.join(",")}" data-step="${s.step}"${sourceURL ? ` data-url="${esc(sourceURL)}"` : ""}></span>`).join("")}</div>`
       + `<div class="rm-said"><b>${esc(l.said)}</b> <span class="muted">${esc(hintText(l, app.data.remembered.lines))}</span></div></div>`;
-  }).join("")}</div>`;
+  }).join("")}</div><span class="grip" data-rm-grip title="Drag to size the anchors"></span></div>`;
 }
 
-// The frames of every group in `box`, cut from the clip they come from; `count` the clip's frames if known.
-export async function fillStrip(box, count) {
+// The frames of every group in `box`, cut from the clip they come from, `height` pixels high; `count` the clip's frames if known.
+export async function fillStrip(box, count, height = 96) {
   for (const item of box.querySelectorAll(".rm-item[data-url]:not(.filled)")) {
     item.classList.add("filled");
     const url = item.dataset.url, span = item.dataset.span.split(",").map(Number), step = Number(item.dataset.step);
@@ -140,7 +159,7 @@ export async function fillStrip(box, count) {
       + `<span class="rm-n">${single ? `frame ${picks[0]}` : `${picks.length} frames`}${dropped.length ? ` · ${dropped.length} past the end` : ""}</span>`;
     if (dropped.length) item.classList.add("past");
     for (const img of item.querySelectorAll("img")) {
-      grab(url, Number(img.dataset.frame)).then((src) => { img.src = src; }).catch(() => {});
+      grab(url, Number(img.dataset.frame), height).then((src) => { img.src = src; }).catch(() => {});
     }
   }
 }

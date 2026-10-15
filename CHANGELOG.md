@@ -237,6 +237,9 @@ checks) are left out.
   length, nothing sent from clips that were never made. The film keeps it at its place and cuts to it; the clips
   after it continue it, and + take makes any clip of a scene. A scene's `AFTER:` reaches its clip though the clips
   between were never made (it asked for all of them, and named the wrong one).
+- The anchors are back (#371), under a scene's takes, in a strip like theirs: what its `REMEMBER:` lines hand on to the
+  clips after it, the frames of the circled take or, with Orrery Refs' `keep_sent` on, the stored anchor it holds; a
+  head says which images and whether `keep_sent` is on, and a grip sizes it. They went with the clips column (bac51f4).
 - No seams in Orrery Film's film (#361, #362, under #359): a clip's last frames and the end of its sound are played as
   the next clip's decode has them, as one decode of the whole film would, so the brightness jumps and the clicks where
   clips met are gone, and the sound's level eases across the seam (up to 1.5 dB, as H3 Continuum's seam guard does).
