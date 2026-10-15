@@ -225,6 +225,10 @@ checks) are left out.
 
 ### Fixed
 
+- A scene's divider acts on its own scene (#414): a click on a `SCENE` line, its words or its divider, makes that
+  scene's clip *Next clip*, and its transport starts there: ▶ rolls this scene, ⏮ ⏭ go to the scene before or after
+  this one, 🔒 holds this scene's clip (from another scene's divider the hold moves there). A scene that never plays at
+  the seed has no clip, so its ▶ ⏮ ⏭ 🔒 are off.
 - No seams in Orrery Film's film (#361, #362, under #359): a clip's last frames and the end of its sound are played as
   the next clip's decode has them, as one decode of the whole film would, so the brightness jumps and the clicks where
   clips met are gone, and the sound's level eases across the seam (up to 1.5 dB, as H3 Continuum's seam guard does).
