@@ -619,6 +619,18 @@ test("a tick in a dial's menu keeps the list where it was, the choice ticked whe
   assert.equal(keptScroll({ top: 10, anchor: 40 }, 0), 0);  // never above the top
 });
 
+test("the bar under the editor shows the whole annotation of the caret's line (#416)", async () => {
+  const { caretHint, shownHints } = await import("../../comfyui/web/app/annotate.js");
+  const hints = new Map([[1, { text: "→ a black latex catsuit · tall boots" }], [2, { text: "→ image 1 · clips 2+", kind: "note" }]]);
+  const text = "SHOT 5s | static\n@ELARA wearing __characters/gothic/attire__, @CYAN kneeling\nREMEMBER: first frame as image 1";
+  assert.equal(caretHint(hints, text, 3), null);  // the SHOT line has none
+  assert.deepEqual(caretHint(hints, text, text.indexOf("wearing")), { text: "→ a black latex catsuit · tall boots", line: 1 });
+  assert.equal(caretHint(hints, text, text.indexOf("\nREMEMBER")).line, 1);  // at the line's end, still its line
+  assert.equal(caretHint(hints, text, text.length).kind, "note");
+  assert.equal(caretHint(shownHints("hover", hints), text, text.indexOf("wearing")), null);  // on hover: the cards say it
+  assert.equal(caretHint(null, text, 0), null);
+});
+
 test("annotations sit at the ends of the lines they belong to (#163)", async () => {
   const { annotationLines, mergeHints } = await import("../../comfyui/web/app/annotate.js");
   const text = ["$colour = __colours__", "$backdrop = a grey wall", "EXPORT:", "  mood = __moods__", "  $who", "EXPORT: $a, $b",

@@ -85,7 +85,9 @@ Nodes under **orrery**:
     roll says nothing, #202), an EXPORT what it keeps, a grid its cells, a CAST
     member where its pictures go (gallery pictures as thumbnails), a REMEMBER:
     line where its frames go. *Annotations* in the settings' *Editor* says where
-    they go (#203): **Appended** (at the line's end, the default), **Hover**
+    they go (#203): **Appended** (at the line's end, the default; a bar under the
+    editor shows the whole annotation of the line the caret is on, which the line's
+    end cuts off when the line leaves it too little room, #416), **Hover**
     (nothing at the line ends: what has one is underlined quietly, a dotted line
     as for a footnote, and hovering it shows the roll first) or **None**. A
     screenplay's lines say what they roll for the scene of the next clip. Hovering a keyword shows what it does and its

@@ -2,7 +2,7 @@
 import { KEYWORDS, castNames, inlineLibraries, suggest } from "../orrery-complete.js";
 import { chosen, closeMenu, drawMenu, fillMenu, joinChoices, keptScroll, reveal } from "./dialmenu.js";
 import { esc, highlight } from "./highlight.js";
-import { annotationLines, mergeHints, shownHints } from "./annotate.js";
+import { annotationLines, caretHint, drawnHints, mergeHints, shownHints } from "./annotate.js";
 import { wireHover } from "./hover.js";
 import { hintsFor } from "./remember.js";
 import { icon } from "./icons.js";
@@ -266,11 +266,18 @@ export function renderPrompt(app) {
       : `<div class="editor${app.data.dividers === false ? " nodiv" : ""}"><pre class="hl" aria-hidden="true"></pre><textarea spellcheck="false" aria-label="Template"></textarea></div>`}
       <div class="side-grip" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize the dials" hidden></div>
       <aside class="dials" aria-label="Dials" hidden></aside></div>
+    ${(app.data.annotations_show || "appended") === "appended" ? '<div class="ann-bar" aria-label="The annotation of the line the caret is on"></div>' : ""}
     ${cellsView(app) ? stageSectionHTML(app) : ""}
     <div class="pfoot">${statsHTML(app)}</div>
     ${app.state.pick ? pickerHTML(app) : ""}`;
 
   const paint = () => paintEditor(app);
+  const caret = (e) => {  // the bar under the editor follows the caret (#416)
+    if (e.target.tagName !== "TEXTAREA") return;
+    app.state.annTa = e.target;
+    paintAnnBar(app);
+  };
+  for (const kind of ["focusin", "keyup", "click", "input"]) app.view.querySelector(".edrow .editor")?.addEventListener(kind, caret);
   const afterEdit = (ta) => {
     fixReelSeed(app);
     fixUniqueSeed(app);
@@ -448,22 +455,40 @@ const painted = new WeakMap();  // the editor's highlight → what it was made f
 // It is made again only when something it shows changed (#218).
 function paintEditor(app) {
   paintRolls(app);
-  if (app.view.querySelector(".editor.cells")) return paintCells(app);
+  if (app.view.querySelector(".editor.cells")) {
+    paintCells(app);
+    return paintAnnBar(app);
+  }
   const pre = app.view.querySelector(".editor pre.hl");
   if (!pre) return;
   const chunks = app.chunks(), known = app.known(), llm = app.llmActive(), segment = chunks && Number(app.bridge.getSegment());
   const acts = chunks && sceneActs(app);
   const hints = shownHints(app.data.annotations_show, mergeHints(hintsFor(app.text, app.remembered()),
     annotationLines(app.text, app.annotations(), app.api.thumbURL)));
+  drawnHints.set(pre, { hints, offset: 0 });
   const key = JSON.stringify([app.text, [...known], llm, chunks, segment, [...hints], acts ? chunks.map((c, n) => acts(c, c.index ?? n)) : ""]);
   if (painted.get(pre) !== key) {
     painted.set(pre, key);
     pre.innerHTML = `${highlight(app.text, known, { llm, chunks, segment, sceneActs: acts, hints })}\n`;
   }
+  paintAnnBar(app);
   if (chunks && app.data.timeline !== false && app.data.chain === undefined) {  // a reel typed or pasted in
     app.data.chain = null;
     loadChain(app).then(() => paintEditor(app));
   }
+}
+
+// The bar under the editor (#416): the whole annotation of the caret's line, which the line's end cuts off at the
+// editor's edge when the line leaves it too little room. Only with the annotations appended at the line ends.
+function paintAnnBar(app) {
+  const bar = app.view.querySelector(".ann-bar"), ta = app.state.annTa;
+  if (!bar) return;
+  const at = ta?.isConnected && drawnHints.get(ta.parentElement.querySelector("pre.hl"));
+  const h = at && caretHint(at.hints, ta.value, ta.selectionStart);
+  const pics = (h?.thumbs || []).map((u) => `<img class="hint-pic" src="${esc(u)}" alt="">`).join("");
+  bar.innerHTML = h ? `<span class="ab-line">line ${at.offset + h.line + 1}</span>`
+    + `<span class="ab-text${h.replaced ? " replaced" : ""}${h.kind ? ` ${h.kind}` : ""}">${pics}${esc(h.text)}</span>`
+    : '<span class="ab-none">The whole annotation of the line the caret is on shows here.</span>';
 }
 
 // The segment moved or a run finished: the marked chunk, the timeline and the footer follow.

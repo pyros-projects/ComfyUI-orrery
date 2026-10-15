@@ -7,7 +7,7 @@
 import { castNames } from "../orrery-complete.js";
 import { highlight } from "./highlight.js";
 import { splitCells } from "./model.js";
-import { annotationLines, mergeHints, shownHints } from "./annotate.js";
+import { annotationLines, drawnHints, mergeHints, shownHints } from "./annotate.js";
 import { fillStrip, hintsFor, openPicker, rememberLines, stripHTML } from "./remember.js";
 import { clipRatio, olderTakes, paintLive, sectionHTML, sourceClip, wireClips } from "./timeline.js";
 import { paintStage } from "./stage.js";
@@ -79,6 +79,7 @@ export function paintCells(app) {
     const hints = shownHints(app.data.annotations_show, mergeHints(hintsFor(c.text, remembered, before),
       annotationLines(c.text, annotations, app.api.thumbURL, c.line)));
     before += rememberLines(c.text).length;
+    drawnHints.set(cell.querySelector("pre"), { hints, offset: c.line });  // for the bar under the editor (#416)
     const key = JSON.stringify([shared, c.text, local, [...hints], acts && local ? acts(local[0], c.chunk) : ""]);
     if (painted.get(cell) === key) return;
     painted.set(cell, key);

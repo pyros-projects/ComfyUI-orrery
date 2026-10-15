@@ -176,7 +176,7 @@ export const SECTION_HTML = {
       <span><b>Timeline</b>: a reel's clips as the reel keeps them (Orrery Film or Chain Video), under each scene, and the frames its <code>REMEMBER:</code> lines take</span></label>
     <h5 class="label">Annotations</h5>
     <p class="muted flush">What a line gives at the node's seed: a binding's roll, every library's, an <code>EXPORT</code>, a grid's runs, where a CAST member's pictures and a <code>REMEMBER:</code> line's frames go.</p>
-    <div class="llm-pick" role="radiogroup" aria-label="Where the annotations show">${[["appended", "<b>Appended</b>: at the line's end (a line of libraries lists their rolls in order: → arcade · bob cut · tracksuit)"],
+    <div class="llm-pick" role="radiogroup" aria-label="Where the annotations show">${[["appended", "<b>Appended</b>: at the line's end (a line of libraries lists their rolls in order: → arcade · bob cut · tracksuit), the caret's line's in full in a bar under the editor"],
       ["hover", "<b>Hover</b>: on what they belong to, quietly underlined; hovering it shows the roll"],
       ["none", "<b>None</b>: no annotations; hovering a keyword or a library still explains it"]].map(([v, label]) =>
       `<label class="check"><input type="radio" name="oa-ann" value="${v}" ${(app.data.annotations_show || "appended") === v ? "checked" : ""}><span>${label}</span></label>`).join("")}</div>`,
