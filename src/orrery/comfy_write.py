@@ -110,15 +110,12 @@ def write_idea(h, task: str, template: str, seed: int, idea: int, params, backen
     called when needed, so an error before them never loads a model or a picture. `steer`: the takes sheet's
     steering line (#334); `prompt`: the prompt as it rolls goes along (#335); `opts`: what the sheet chose (#342)."""
     from orrery import comfy
-    from orrery.dsl import bindings, override, strip_comments
+    from orrery.dsl import override, strip_comments
     from orrery.presets import resolve_includes
 
     answer = None
     try:
-        known = {name for name, _ in bindings(template)}
-        dials = comfy.dial_values(params if isinstance(params, str) else json.dumps(params or {}))
-        dials = {k: v for k, v in dials.items() if k in known}
-        source = strip_comments(resolve_includes(h, override(template, dials)))
+        source = strip_comments(resolve_includes(h, override(template, comfy._dials(template, params))))  # knobs too (#418)
         images, given = frames()
         asked = writers.request(h, task, source, seed, h.libraries(), h.weights(), steer, given, prompt, opts)
         model = backend()

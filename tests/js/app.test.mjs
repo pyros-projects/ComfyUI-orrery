@@ -1234,24 +1234,61 @@ test("a scene's divider deletes the scene or duplicates it right after itself (#
   assert.equal(chunkInfo(copyScene(text, chunks, 0)).length, 4);
 });
 
-test("every scene divider has the reel's transport, in step with the footer (#341)", async () => {
+test("every scene divider has the transport, acting on its own scene (#341, #414)", async () => {
   const { sceneActs } = await import("../../comfyui/web/app/prompt.js");
   const { chunkInfo } = await import("../../comfyui/web/app/model.js");
-  const chunks = chunkInfo("@h3 t2va\nSCENE a\nSHOT 5s\nA.\nSCENE b ×3\nSHOT 5s\nB.");
+  const chunks = chunkInfo("@h3 t2va\nSCENE a\nSHOT 5s\nA.\nSCENE b ×3\nSHOT 5s\nB.");  // clips 0 | 1 2 3
   const app = { chunks: () => chunks, state: {}, bridge: { getSegment: () => 1, segmentHeld: () => true, props: { repeat: 2 } } };
-  const html = sceneActs(app)(chunks[0], 0);
+  const html = sceneActs(app)(chunks[1], 1);  // b plays the next clip
   const order = ["prev", "roll", "more", "next", "hold", "stats"].map((a) => html.indexOf(`data-scene-act="${a}"`));
   assert.deepEqual([...order].sort((x, y) => x - y), order);  // ⏮ ▶ +N ⏭ 🔒 📊
-  assert.match(html, /Next clip becomes 1: the first of the scene before/);
-  assert.match(html, /data-scene-act="next"[^>]*title="No scene after this clip's"[^>]*disabled/);  // b is the last
+  assert.match(html, /Next clip becomes 1: the first of the scene before this one/);
+  assert.match(html, /data-scene-act="next"[^>]*title="No scene after this one"[^>]*disabled/);  // b is the last
   assert.match(html, /title="Roll: clip 2 and the 1 after it, as Roll in the footer"/);
   assert.match(html, />\+2<\/button>/);
   assert.match(html, /title="A Roll plays 2 clips. Click for 4"/);
-  assert.match(html, /data-scene-act="hold"[^>]*aria-pressed="true"/);
-  assert.match(html, /data-scene-act="copy"[^>]*title="Duplicate SCENE 1 \(a\): a copy right after it"/);  // #344
-  assert.match(html, /data-scene-act="drop"[^>]*title="Delete SCENE 1 \(a\)"/);
+  assert.match(html, /data-scene-act="hold"[^>]*title="Held: every Roll plays this clip again[^"]*"[^>]*aria-pressed="true"/);
+  assert.match(html, /data-scene-act="copy"[^>]*title="Duplicate SCENE 2 \(b\): a copy right after it"/);  // #344
+  assert.match(html, /data-scene-act="drop"[^>]*title="Delete SCENE 2 \(b\)"/);
+  const other = sceneActs(app)(chunks[0], 0);  // a: its own clip, not the next clip's
+  assert.match(other, /data-scene-act="prev"[^>]*title="No scene before this one"[^>]*disabled/);
+  assert.match(other, /title="Roll this scene: Next clip becomes 1, then Roll plays it and the 1 after it"/);
+  assert.match(other, /Next clip becomes 2: the first of the scene after this one/);
+  assert.match(other, /data-scene-act="hold"[^>]*title="Hold clip 1 instead: every Roll plays it again, for takes"[^>]*aria-pressed="false"/);
   app.state.sweepQueue = { done: 0, total: 4 };
-  assert.match(sceneActs(app)(chunks[0], 0), /data-scene-act="roll"[^>]*disabled/);  // a sweep is queueing
+  assert.match(sceneActs(app)(chunks[1], 1), /data-scene-act="roll"[^>]*disabled/);  // a sweep is queueing
+  assert.match(sceneActs(app)(chunks[0], 0), /data-scene-act="hold"[^>]*disabled/);  // no moving the hold meanwhile
+  assert.doesNotMatch(sceneActs(app)(chunks[1], 1), /data-scene-act="hold"[^>]*disabled/);  // releasing it still works
+});
+
+test("a scene that never plays has no clip for its transport (#414)", async () => {
+  const { sceneActs } = await import("../../comfyui/web/app/prompt.js");
+  const { chunkInfo } = await import("../../comfyui/web/app/model.js");
+  const chunks = chunkInfo("@h3 t2va\nSCENE a forever\nSHOT 5s\nA.\nSCENE b\nSHOT 5s\nB.");
+  const app = { chunks: () => chunks, state: {}, bridge: { getSegment: () => 0, segmentHeld: () => false, props: {} } };
+  const html = sceneActs(app)(chunks[1], 1);
+  for (const act of ["prev", "roll", "next", "hold"]) {
+    assert.match(html, new RegExp(`data-scene-act="${act}"[^>]*title="SCENE 2 \\(b\\) never plays at this seed: it has no clip"[^>]*disabled`));
+  }
+  assert.doesNotMatch(html, /data-scene-act="more"[^>]*disabled/);  // what a Roll plays is the reel's
+});
+
+test("a scene's transport works from its own clip; a click on its SCENE line finds it (#414)", async () => {
+  const { chunkInfo, sceneAtCaret, sceneTransport } = await import("../../comfyui/web/app/model.js");
+  const text = "@h3 t2va\n# a note\nSCENE a\nSHOT 5s\nA.\nSCENE b ×3\nSHOT 5s\nB.\nSCENE c\nSHOT 5s\nC.";  // clips 0 | 1 2 3 | 4
+  const chunks = chunkInfo(text);
+  assert.deepEqual(sceneTransport(chunks, chunks[0], 2), { to: 0, now: false, prev: null, next: 1 });
+  assert.deepEqual(sceneTransport(chunks, chunks[1], 2), { to: 2, now: true, prev: 0, next: 4 });  // it keeps its place
+  assert.deepEqual(sceneTransport(chunks, chunks[2], 2), { to: 4, now: false, prev: 1, next: null });
+  const never = chunkInfo("@h3 t2va\nSCENE a forever\nSHOT 5s\nA.\nSCENE b\nSHOT 5s\nB.");
+  assert.deepEqual(sceneTransport(never, never[1], 0), { to: null, now: false, prev: null, next: null });
+  const at = (s) => text.indexOf(s);
+  assert.equal(sceneAtCaret(chunks, text, at("SCENE a")), 0);
+  assert.equal(sceneAtCaret(chunks, text, at("SCENE b") + 9), 1);  // anywhere on the line
+  assert.equal(sceneAtCaret(chunks, text, at("SCENE c") + "SCENE c".length), 2);  // its end too
+  assert.equal(sceneAtCaret(chunks, text, at("A.")), -1);  // a scene's other lines are no header
+  assert.equal(sceneAtCaret(chunks, text, 0), -1);
+  assert.equal(sceneAtCaret(null, text, 0), -1);  // no reel
 });
 
 test("a sheet sends along by default what its kind needs: the prompt, the story both frames, a picture its frame (#335)", async () => {
