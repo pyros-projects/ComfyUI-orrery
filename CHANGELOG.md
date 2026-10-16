@@ -9,6 +9,9 @@ checks) are left out.
 
 ### Added
 
+- `orrery serve` (#439): orrery's HTTP API, the `/orrery/*` routes, on a server of its own, without ComfyUI and
+  without loading a model, for the standalone studio. `--home` picks the home, `--output` ComfyUI's output folder for
+  the take tree; a route that needs a running ComfyUI says so. `uv sync --extra serve` adds aiohttp.
 - The preview steps through a reel (#430): ⏮ ⏭ to the scene before or after (its circled take), ‹ › through the
   scene's takes over its clips, and with the preview focused ← → for scenes, Shift+← → for takes. The frame picker
   keeps ← → for frames.
