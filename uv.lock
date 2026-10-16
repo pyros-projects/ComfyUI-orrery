@@ -1051,6 +1051,9 @@ local = [
 ]
 serve = [
     { name = "aiohttp" },
+    { name = "av" },
+    { name = "numpy" },
+    { name = "pillow" },
 ]
 
 [package.dev-dependencies]
@@ -1068,6 +1071,9 @@ dev = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'local'", specifier = ">=1.14" },
     { name = "aiohttp", marker = "extra == 'serve'", specifier = ">=3.11" },
+    { name = "av", marker = "extra == 'serve'", specifier = ">=18.1.0" },
+    { name = "numpy", marker = "extra == 'serve'", specifier = ">=2.5.3" },
+    { name = "pillow", marker = "extra == 'serve'", specifier = ">=12.3.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "torch", marker = "extra == 'local'", specifier = ">=2.12", index = "https://download.pytorch.org/whl/cu130" },
     { name = "transformers", marker = "extra == 'local'", specifier = ">=5.9" },

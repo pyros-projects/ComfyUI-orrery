@@ -231,6 +231,7 @@ checks) are left out.
 
 ### Fixed
 
+- The `orrery` command runs on PyYAML alone again, as the README says (#443): it failed at once without numpy since 2026-10-01. `uv sync --extra serve` now brings Pillow, PyAV and numpy too, so `orrery serve` answers thumbnails and anchors.
 - An annotation at a line's end wraps with its line like text instead of being cut off at the editor's edge (#416).
   The textarea holds the annotation's characters too, so both layers wrap alike; the template stays as typed, the
   caret steps over an annotation, a copy leaves it out, and the editor has an Undo of its own.
