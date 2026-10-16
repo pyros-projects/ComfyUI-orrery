@@ -6,13 +6,16 @@ anchor comes from it instead, from segment 0 and for the whole run, so a charact
 the run that made it; switched off, the next fetch replaces the anchor.
 """
 
+from __future__ import annotations
+
 import shutil
 from pathlib import Path
-
-import numpy as np
-from PIL import Image
+from typing import TYPE_CHECKING
 
 from orrery.home import Home
+
+if TYPE_CHECKING:
+    import numpy as np  # numpy and Pillow come with ComfyUI; the CLI's core runs without them
 
 
 def folder(home: Home, n: int) -> Path:
@@ -29,6 +32,9 @@ def stored(home: Home) -> set[int]:
 
 def save(home: Home, n: int, frames) -> None:
     """Store an IMAGE batch (torch or numpy, values 0–1) as image N's anchor, replacing the old one."""
+    import numpy as np
+    from PIL import Image
+
     array = frames.cpu().numpy() if hasattr(frames, "cpu") else np.asarray(frames)
     dest = folder(home, n)
     tmp = dest.with_name(dest.name + ".tmp")
@@ -42,6 +48,9 @@ def save(home: Home, n: int, frames) -> None:
 
 def load(home: Home, n: int) -> np.ndarray | None:
     """Image N's anchor as a float array (frames, height, width, 3), or None without one."""
+    import numpy as np
+    from PIL import Image
+
     files = sorted(folder(home, n).glob("*.png"))
     if not files:
         return None

@@ -134,7 +134,7 @@ mklink /J C:\path\to\ComfyUI\custom_nodes\orrery C:\path\to\orrery\comfyui
 cd orrery
 uv sync                  # core: only PyYAML
 uv sync --extra local    # + torch and transformers for a local language model
-uv sync --extra serve    # + aiohttp for orrery serve
+uv sync --extra serve    # + aiohttp, Pillow, PyAV and numpy for orrery serve
 ```
 
 `orrery serve` serves orrery's HTTP API, the `/orrery/*` routes the node app

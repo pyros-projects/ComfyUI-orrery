@@ -38,7 +38,7 @@ line-length = 100
 
 [project.optional-dependencies]
 local = ["transformers>=5.9", "torch>=2.12", "accelerate>=1.14"]
-serve = ["aiohttp>=3.11"]
+serve = ["aiohttp>=3.11", "av>=18.1.0", "numpy>=2.5.3", "pillow>=12.3.0"]  # every route outside ComfyUI
 
 [tool.uv.sources]
 torch = [{ index = "pytorch-cu130" }]
